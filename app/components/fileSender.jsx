@@ -14,7 +14,8 @@ export function FileSender() {
   const [peerJoined, setPeerJoined] = useState(false);
   const [connection, setConnection] = useState(null);
   const [dataChannel, setDataChannel] = useState(null);
-  const [transferStatus, setTransferStatus] = useState(""); // Track transfer status
+  const [transferStatus, setTransferStatus] = useState("");
+  const [transferProgress, setTransferProgress] = useState(0);
 
   const socket = React.useMemo(() => io("http://localhost:3000"), []);
 
@@ -108,7 +109,6 @@ export function FileSender() {
     });
   };
 
-
   const handleDataChannelEvents = (channel) => {
     channel.onclose = () => {
       console.log("DataChannel closed.");
@@ -177,34 +177,66 @@ export function FileSender() {
   }, [socket]);
 
   return (
-    <div className="max-w-md mx-auto p-6">
-      <Card
+    <div className="max-w-md mx-auto p-6 bg-white shadow-md rounded-lg">
+      <h1 className="text-2xl font-bold mb-4">File Sender</h1>
+      <div
         {...getRootProps()}
-        className={`p-8 text-center border-dashed cursor-pointer ${
-          isDragActive ? "border-primary" : "border-input"
-        } bg-background`}
+        className={`p-6 mb-4 border-2 border-dashed rounded-lg text-center cursor-pointer ${
+          isDragActive ? "border-blue-500 bg-blue-50" : "border-gray-300"
+        }`}
       >
         <input {...getInputProps()} />
-        <p>Drop files here or click to upload</p>
-      </Card>
+        <p className="text-purple-700">Drop files here or click to upload</p>
+      </div>
       {files.length > 0 && (
-        <ul>
-          {files.map((file, index) => (
-            <li key={index}>
-              {file.name} - {(file.size / 1024 / 1024).toFixed(2)} MB
-            </li>
-          ))}
-        </ul>
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold mb-2 text-black">Selected Files:</h2>
+          <ul className="space-y-1">
+            {files.map((file, index) => (
+              <li key={index} className="text-sm text-gray-600">
+                {file.name} - {(file.size / 1024 / 1024).toFixed(2)} MB
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       {roomId ? (
-        <p>Sharing Link: http://localhost:3001/join/{roomId}</p>
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold mb-2">Sharing Link:</h2>
+          <p className="text-blue-600 break-all">
+            http://localhost:3001/join/{roomId}
+          </p>
+        </div>
       ) : (
-        <Button onClick={generateLink}>Generate Sharing Link</Button>
+        <button
+          onClick={generateLink}
+          className="w-full mb-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
+        >
+          Generate Sharing Link
+        </button>
       )}
       {peerJoined && (
-        <Button onClick={startSharing}>Start Sharing Files</Button>
+        <button
+          onClick={startSharing}
+          className="w-full mb-4 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded"
+        >
+          Start Sharing Files
+        </button>
       )}
-      <p>{transferStatus}</p> {/* Display transfer status */}
+      {transferStatus && (
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold mb-2">Transfer Status:</h2>
+          <p className="text-gray-600">{transferStatus}</p>
+          {transferProgress > 0 && (
+            <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+              <div
+                className="bg-blue-600 h-2.5 rounded-full"
+                style={{ width: `${transferProgress}%` }}
+              ></div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
