@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { io } from "socket.io-client";
+import styles from "./FileReceiver.module.css"; // Import the styles
 
 const socket = io("http://localhost:3000");
 
@@ -121,24 +122,24 @@ export default function FileReceiver() {
     };
 
     if (error) {
-        return <div>Error: {error}</div>;
+        return <div className={styles.error}>Error: {error}</div>;
     }
 
     return (
-        <div>
-            <h1>Room ID: {roomId || "Loading..."}</h1>
+        <div className={styles.container}>
+            <h1 className={styles.header}>Room ID: {roomId || "Loading..."}</h1>
             {peerJoined ? (
-                <p>A peer has joined the room. File transfer will begin shortly.</p>
+                <p className={styles.info}>A peer has joined the room. File transfer will begin shortly.</p>
             ) : (
-                <p>Waiting for a peer to join...</p>
+                <p className={styles.info}>Waiting for a peer to join...</p>
             )}
             {expectedFileSize && (
-                <div>
+                <div className={styles.progressContainer}>
                     <p>Transfer progress: {progress}%</p>
-                    <progress value={progress} max="100"></progress>
+                    <progress value={progress} max="100" className={styles.progressBar}></progress>
                 </div>
             )}
-            {fileReceived && <p>File received successfully: {fileName || "Unknown file"}</p>}
+            {fileReceived && <p className={styles.success}>File received successfully: {fileName || "Unknown file"}</p>}
         </div>
     );
 }

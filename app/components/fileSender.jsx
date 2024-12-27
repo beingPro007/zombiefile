@@ -7,6 +7,8 @@ import { Card } from "@/app/components/ui/card";
 import { io } from "socket.io-client";
 import { v4 as uuidv4 } from "uuid";
 import { fileTypeFromBuffer } from "file-type";
+import qrCodeGenerator from "@/components/qrCodeGenerator";
+import CopyButton from "./ui/copyButton";
 
 export function FileSender() {
   const [files, setFiles] = useState([]);
@@ -49,24 +51,21 @@ export function FileSender() {
         ).toFixed(2)} MB)`
       );
 
-      // First, send the MIME type
       const reader = new FileReader();
 
       reader.onload = async () => {
         const fileBuffer = reader.result;
         const type = await fileTypeFromBuffer(fileBuffer);
-        const mimeType = type ? type.mime : "application/octet-stream"; // Default MIME type if not detected
+        const mimeType = type ? type.mime : "application/octet-stream";
 
         console.log(`Detected MIME type for ${file.name}: ${mimeType}`);
 
-        // Send MIME type first
         channel.send(mimeType);
 
-        // Send the file name next
         channel.send(file.name);
         console.log(`Sent file name: ${file.name}`);
 
-        const chunkSize = 65536
+        const chunkSize = 65536;
         let offset = 0;
 
         const sendChunk = () => {
@@ -77,7 +76,6 @@ export function FileSender() {
                 channel.send(chunk);
                 offset += chunkSize;
 
-                // Update transfer progress
                 const progress = Math.floor(
                   (offset / fileBuffer.byteLength) * 100
                 );
@@ -89,7 +87,7 @@ export function FileSender() {
               } else {
                 console.log("BufferedAmount is high. Waiting...");
               }
-              setTimeout(sendChunk, 50); // Retry after 50ms
+              setTimeout(sendChunk, 50); 
             } else {
               setTransferStatus(
                 "DataChannel is closed. File transfer aborted."
@@ -97,15 +95,14 @@ export function FileSender() {
               console.error("DataChannel is closed. File transfer aborted.");
             }
           } else {
-            channel.send("END"); // End of file transfer
+            channel.send("END");
             setTransferStatus(`File transfer complete.`);
-            setTransferProgress(100); // Ensure progress is set to 100%
+            setTransferProgress(100);
             console.log("All chunks sent. File transfer complete.");
           }
         };
 
-
-        sendChunk(); // Start sending chunks
+        sendChunk();
       };
 
       reader.onerror = (error) => {
@@ -113,7 +110,7 @@ export function FileSender() {
         setTransferStatus(`Error reading file: ${file.name}`);
       };
 
-      reader.readAsArrayBuffer(file); // Read file as an ArrayBuffer
+      reader.readAsArrayBuffer(file);
       console.log(`Reading file: ${file.name}`);
     });
   };
@@ -187,7 +184,7 @@ export function FileSender() {
 
   return (
     <div className="max-w-md mx-auto p-6 bg-white shadow-md rounded-lg">
-      <h1 className="text-2xl font-bold mb-4">File Sender</h1>
+      <h1 className="text-2xl font-bold mb-4 text-black">File Sender</h1>
       <div
         {...getRootProps()}
         className={`p-6 mb-4 border-2 border-dashed rounded-lg text-center cursor-pointer ${
@@ -199,7 +196,9 @@ export function FileSender() {
       </div>
       {files.length > 0 && (
         <div className="mb-4">
-          <h2 className="text-lg font-semibold mb-2 text-black">Selected Files:</h2>
+          <h2 className="text-lg font-semibold mb-2 text-black">
+            Selected Files:
+          </h2>
           <ul className="space-y-1">
             {files.map((file, index) => (
               <li key={index} className="text-sm text-gray-600">
@@ -209,21 +208,32 @@ export function FileSender() {
           </ul>
         </div>
       )}
-      {roomId ? (
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold mb-2">Sharing Link:</h2>
-          <p className="text-blue-600 break-all">
-            http://localhost:3001/join/{roomId}
-          </p>
-        </div>
-      ) : (
-        <button
-          onClick={generateLink}
-          className="w-full mb-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
-        >
-          Generate Sharing Link
-        </button>
-      )}
+      <div className="mb-4">
+        {roomId ? (
+          <div>
+            <h2 className="text-lg font-semibold mb-2 text-black">
+              Sharing Link:
+            </h2>
+            <div className="flex items-center space-x-2 p-4">
+              <input
+                type="text"
+                value={`http://localhost:3001/join/${roomId}`}
+                readOnly
+                className="flex-grow px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-800"
+              />
+              <CopyButton text={`http://localhost:3001/join/${roomId}` } />
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={generateLink}
+            className="w-full mb-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
+          >
+            Generate Sharing Link
+          </button>
+        )}
+      </div>
+
       {peerJoined && (
         <button
           onClick={startSharing}
@@ -235,11 +245,11 @@ export function FileSender() {
       {transferStatus && (
         <div className="mb-4">
           <h2 className="text-lg font-semibold mb-2">Transfer Status:</h2>
-          <p className="text-gray-600">{transferStatus}</p>
+          <p className="text-slate-500">{transferStatus}</p>
           {transferProgress > 0 && (
             <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
               <div
-                className="bg-blue-600 h-2.5 rounded-full"
+                className="bg-green-500 h-2.5 rounded-full"
                 style={{ width: `${transferProgress}%` }}
               ></div>
             </div>
