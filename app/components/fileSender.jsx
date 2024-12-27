@@ -66,7 +66,7 @@ export function FileSender() {
         channel.send(file.name);
         console.log(`Sent file name: ${file.name}`);
 
-        const chunkSize = 65536; // 16 KB chunks
+        const chunkSize = 65536
         let offset = 0;
 
         const sendChunk = () => {
@@ -76,6 +76,13 @@ export function FileSender() {
                 const chunk = fileBuffer.slice(offset, offset + chunkSize);
                 channel.send(chunk);
                 offset += chunkSize;
+
+                // Update transfer progress
+                const progress = Math.floor(
+                  (offset / fileBuffer.byteLength) * 100
+                );
+                setTransferProgress(progress);
+
                 console.log(
                   `Sent chunk: Offset ${offset} of ${fileBuffer.byteLength} bytes`
                 );
@@ -92,9 +99,11 @@ export function FileSender() {
           } else {
             channel.send("END"); // End of file transfer
             setTransferStatus(`File transfer complete.`);
+            setTransferProgress(100); // Ensure progress is set to 100%
             console.log("All chunks sent. File transfer complete.");
           }
         };
+
 
         sendChunk(); // Start sending chunks
       };
