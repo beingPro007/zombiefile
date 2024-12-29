@@ -2,11 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: linear-gradient(135deg, #ff6347, #1e90ff);
-  --foreground: #2f2f2f;
-}
-
 html.dark {
   --background: linear-gradient(135deg, #1c1c1c, #3a3a3a);
   /* Dark gradient for dark mode */

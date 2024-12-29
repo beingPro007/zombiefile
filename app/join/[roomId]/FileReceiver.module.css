@@ -4,7 +4,7 @@
     align-items: center;
     justify-content: center;
     height: 100vh;
-    background: linear-gradient(to bottom right, #ff7a7a, #7abaff);
+    background: linear-gradient(to bottom right, #292323, #b17aff);
     color: white;
     font-family: Arial, sans-serif;
     text-align: center;
@@ -62,8 +62,8 @@
 }
 
 .body {
-  color:linear-gradient(135deg, #ff6347, #1e90ff);
-  background:#2f2f2f;
+  color:linear-gradient(135deg, #0b0707, #52565b);
+  background:#ea00001a;
   font-family: Arial, Helvetica, sans-serif, Poppins;
   background-size: cover;
   background-attachment: fixed;

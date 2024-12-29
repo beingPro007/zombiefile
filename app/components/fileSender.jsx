@@ -18,6 +18,7 @@ export function FileSender() {
   const [dataChannel, setDataChannel] = useState(null);
   const [transferStatus, setTransferStatus] = useState("");
   const [transferProgress, setTransferProgress] = useState(0);
+  const [link, setlink] = useState(null)
 
   const socket = React.useMemo(() => io("http://localhost:3000"), []);
 
@@ -32,6 +33,8 @@ export function FileSender() {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
 
   const generateLink = () => {
+    const currentUrl = window.location.href; 
+    setlink(currentUrl); 
     const newRoomId = uuidv4();
     setRoomId(newRoomId);
     socket.emit("create-room", newRoomId);
@@ -217,11 +220,11 @@ export function FileSender() {
             <div className="flex items-center space-x-2 p-4">
               <input
                 type="text"
-                value={`http://localhost:3001/join/${roomId}`}
+                value={`${link}join/${roomId}`}
                 readOnly
                 className="flex-grow px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-800"
               />
-              <CopyButton text={`http://localhost:3001/join/${roomId}` } />
+              <CopyButton text={`${link}join/${roomId}` } />
             </div>
           </div>
         ) : (
