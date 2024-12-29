@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout code
         uses: actions/checkout@v2
 
@@ -26,13 +25,13 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t us-central1-docker.pkg.dev/${{ secrets.GOOGLE_CLOUD_PROJECT_ID }}/zombie-file-p2p-server/zombie-file-p2p-server:$GITHUB_SHA .
+          docker build -t us-central1-docker.pkg.dev/zombie-file/zombie-file/zombie-file-p2p-server:$GITHUB_SHA .
 
       - name: Push Docker image to Artifact Registry
         run: |
           gcloud auth configure-docker us-central1-docker.pkg.dev
-          docker push us-central1-docker.pkg.dev/${{ secrets.GOOGLE_CLOUD_PROJECT_ID }}/zombie-file-p2p-server/zombie-file-p2p-server:$GITHUB_SHA
-
+          docker push us-central1-docker.pkg.dev/zombie-file/zombie-file/zombie-file-p2p-server:$GITHUB_SHA
+          
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy zombie-file-p2p-server \
