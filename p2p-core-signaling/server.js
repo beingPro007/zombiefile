@@ -13,7 +13,6 @@ const CORS_ORIGIN = process.env.NODE_ENV !== "production"
 
 const rooms = {}; // Store room information
 
-// Middleware
 app.use(express.json());
 
 app.get("/api/status", (req, res) => {
