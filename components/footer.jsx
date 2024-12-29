@@ -7,7 +7,7 @@ export function Footer() {
     <footer className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t flex justify-center space-x-4">
       <Button variant="ghost" size="icon" asChild>
         <a
-          href="https://github.com"
+          href="https://github.com/beingPro007/zombiefile"
           target="_blank"
           rel="noopener noreferrer"
           aria-label="GitHub"
@@ -17,7 +17,7 @@ export function Footer() {
       </Button>
       <Button variant="ghost" size="icon" asChild>
         <a
-          href="https://www.buymeacoffee.com"
+          href="https://www.buymeacoffee.com/rdxtreme"
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Buy Me a Coffee"

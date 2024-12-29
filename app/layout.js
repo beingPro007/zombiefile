@@ -5,7 +5,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'File Upload with Theme Toggle',
+  title: 'Zombie File',
   description: 'A modern file upload UI with dark mode support',
 }
 
@@ -20,4 +20,3 @@ export default function RootLayout({ children }) {
     </html>
   )
 }
-

@@ -3,19 +3,21 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { io } from "socket.io-client";
-import { fileTypeFromBuffer } from "file-type";
+import styles from "./FileReceiver.module.css"; // Import the styles
 
 const socket = io("http://localhost:3000");
 
 export default function FileReceiver() {
     const params = useParams();
     const [roomId, setRoomId] = useState(null);
-    const [receivedChunks, setReceivedChunks] = useState([]);
+    const [receivedChunks, setReceivedChunks] = useState([]); // Store chunks
     const [fileName, setFileName] = useState(null);
-    const [fileMimeType, setFileMimeType] = useState(null); // Store MIME type
+    const [fileMimeType, setFileMimeType] = useState(null);
     const [peerJoined, setPeerJoined] = useState(false);
     const [fileReceived, setFileReceived] = useState(false);
     const [error, setError] = useState(null);
+    const [progress, setProgress] = useState(0); // Progress percentage
+    const [expectedFileSize, setExpectedFileSize] = useState(null); // Expected file size
 
     useEffect(() => {
         const queryRoomId = params?.roomId;
@@ -33,12 +35,10 @@ export default function FileReceiver() {
 
         let dataChannel = null;
 
-        // Join the room via the signaling server
         socket.emit("join-room", queryRoomId);
 
         socket.on("peer-joined", () => {
             setPeerJoined(true);
-            console.log("Peer has joined the room.");
         });
 
         connection.onicecandidate = ({ candidate }) => {
@@ -53,7 +53,6 @@ export default function FileReceiver() {
             }
         });
 
-        // Handle incoming offer
         socket.on("offer", async ({ offer }) => {
             await connection.setRemoteDescription(offer);
             const answer = await connection.createAnswer();
@@ -61,11 +60,9 @@ export default function FileReceiver() {
             socket.emit("answer", { roomId: queryRoomId, answer });
         });
 
-        // Handle data channel creation by the sender
         connection.ondatachannel = (event) => {
-            setPeerJoined(true)
+            setPeerJoined(true);
             dataChannel = event.channel;
-            console.log("DataChannel received:", dataChannel);
 
             const chunks = [];
             let currentFileMimeType = null;
@@ -74,25 +71,29 @@ export default function FileReceiver() {
             dataChannel.onmessage = (event) => {
                 if (typeof event.data === "string") {
                     if (currentFileMimeType === null) {
-                        // First string message is the MIME type
                         currentFileMimeType = event.data;
                         setFileMimeType(currentFileMimeType);
-                        console.log(`Received MIME type: ${currentFileMimeType}`);
                     } else if (currentFileName === null) {
-                        // Second string message is the file name
                         currentFileName = event.data;
                         setFileName(currentFileName);
-                        console.log(`Received file name: ${currentFileName}`);
+                    } else if (event.data.startsWith("SIZE:")) {
+                        const size = parseInt(event.data.split(":")[1], 10);
+                        setExpectedFileSize(size);
                     } else if (event.data === "END") {
-                        // End of file transfer
                         const receivedFile = new Blob(chunks, { type: currentFileMimeType });
                         downloadFile(receivedFile, currentFileName);
                         setFileReceived(true);
-                        console.log("File transfer complete.");
                     }
                 } else {
-                    // File chunk received
                     chunks.push(event.data);
+                    setReceivedChunks((prevChunks) => [...prevChunks, event.data]);
+
+                    // Update progress based on expected size
+                    if (expectedFileSize) {
+                        const receivedSize = chunks.reduce((total, chunk) => total + chunk.byteLength, 0);
+                        const percentage = Math.min((receivedSize / expectedFileSize) * 100, 100);
+                        setProgress(Math.floor(percentage));
+                    }
                 }
             };
 
@@ -101,12 +102,10 @@ export default function FileReceiver() {
             };
 
             dataChannel.onerror = (error) => {
-                console.error("DataChannel error:", error);
-                setError("Error occurred during file transfer.");
+                setError("Error during file transfer.");
             };
         };
 
-        // Cleanup on unmount
         return () => {
             connection.close();
             socket.disconnect();
@@ -114,41 +113,33 @@ export default function FileReceiver() {
     }, [params]);
 
     const downloadFile = (fileBuffer, fileName) => {
-        console.log(`Starting download for file: ${fileName}`);
-
-        // Use the file-type library to detect the MIME type from the file buffer
-        const type = fileTypeFromBuffer(fileBuffer);
-        const inferredMimeType = type ? type.mime : "application/octet-stream"; // Fallback if MIME type is not detected
-
-        console.log(`Inferred MIME type for file "${fileName}": ${inferredMimeType}`);
-
-        const blobWithType = new Blob([fileBuffer], { type: inferredMimeType });
-        const url = URL.createObjectURL(blobWithType);
+        const url = URL.createObjectURL(fileBuffer);
         const a = document.createElement("a");
         a.href = url;
         a.download = fileName;
         a.click();
         URL.revokeObjectURL(url);
-        console.log(`Object URL revoked for file: ${fileName}`);
     };
 
     if (error) {
-        return <div>Error: {error}</div>;
+        return <div className={styles.error}>Error: {error}</div>;
     }
 
     return (
-        <div>
-            <h1>Room ID: {roomId || "Loading..."}</h1>
+        <div className={styles.container}>
+            <h1 className={styles.header}>Room ID: {roomId || "Loading..."}</h1>
             {peerJoined ? (
-                <p>A peer has joined the room. File transfer will begin shortly.</p>
+                <p className={styles.info}>A peer has joined the room. File transfer will begin shortly.</p>
             ) : (
-                <p>Waiting for a peer to join...</p>
+                <p className={styles.info}>Waiting for a peer to join...</p>
             )}
-            {fileReceived ? (
-                <p>File received successfully: {fileName || "Unknown file"}</p>
-            ) : (
-                <p>Waiting for file...</p>
+            {expectedFileSize && (
+                <div className={styles.progressContainer}>
+                    <p>Transfer progress: {progress}%</p>
+                    <progress value={progress} max="100" className={styles.progressBar}></progress>
+                </div>
             )}
+            {fileReceived && <p className={styles.success}>File received successfully: {fileName || "Unknown file"}</p>}
         </div>
     );
 }
