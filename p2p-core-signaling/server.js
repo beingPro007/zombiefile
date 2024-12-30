@@ -11,7 +11,6 @@ const CORS_ORIGIN = process.env.NODE_ENV !== "production"
     ? "*"
     : process.env.FRONTEND_URL || "http://localhost:3001";
 
-const rooms = {}; // Store room information
 
 app.use(express.json());
 
