@@ -3,10 +3,8 @@ name: Deploy the Server to Google Cloud Run
 on:
   push:
     branches:
-      - test
       - main
-    paths:
-      - 'p2p-core-signaling/**'
+      - test
 
 jobs:
   build_and_deploy:
@@ -28,7 +26,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t us-central1-docker.pkg.dev/zombie-file/zombie-file/zombie-file-p2p-server:${{ github.sha }} .
+          docker build -t us-central1-docker.pkg.dev/zombie-file/zombie-file/zombie-file-p2p-server:${{ github.sha }} ./p2p-core-signaling
 
       - name: Push Docker image to Artifact Registry
         run: |
