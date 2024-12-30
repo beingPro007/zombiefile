@@ -4,6 +4,7 @@ import { Server } from "socket.io";
 import dotenv from "dotenv";
 
 dotenv.config();
+const rooms = {}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
