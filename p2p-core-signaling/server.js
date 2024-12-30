@@ -10,7 +10,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const CORS_ORIGIN = process.env.NODE_ENV !== "production"
     ? "*"
-    : process.env.FRONTEND_URL || "https://zombiefile.vercel.app/";
+    : process.env.FRONTEND_URL || "https://zombiefile.vercel.app";
 
 
 app.use(express.json());
