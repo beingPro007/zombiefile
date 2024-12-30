@@ -5,6 +5,8 @@ on:
     branches:
       - test
       - main
+    paths:
+      - 'p2p-core-signaling/**'
 
 jobs:
   build_and_deploy:
