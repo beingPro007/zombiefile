@@ -9,7 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const CORS_ORIGIN = process.env.NODE_ENV !== "production"
     ? "*"
-    : process.env.FRONTEND_URL || "http://localhost:3001";
+    : process.env.FRONTEND_URL || "https://zombiefile.vercel.app/";
 
 const rooms = {}; // Store room information
 

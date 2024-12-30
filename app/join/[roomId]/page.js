@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { io } from "socket.io-client";
 import styles from "./FileReceiver.module.css"; // Import the styles
 
-const socket = io("http://localhost:3000");
+const socket = io("https://zombie-file-p2p-server-1060514353958.us-central1.run.app/");
 
 export default function FileReceiver() {
     const params = useParams();

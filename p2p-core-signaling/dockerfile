@@ -19,5 +19,5 @@ COPY . .
 # Expose the application port
 EXPOSE 3000
 
-# Run the server script directly for production
+# Run the server script directly for production 
 CMD ["node", "-r", "dotenv/config", "server.js"]
