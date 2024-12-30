@@ -23,6 +23,10 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: zombie-file
+          
+      - name: Create .env File
+        run: |
+          echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> .env
 
       - name: Build Docker image
         run: |
