@@ -20,7 +20,11 @@ export function FileSender() {
   const [transferProgress, setTransferProgress] = useState(0);
   const [link, setlink] = useState(null)
 
-  const socket = React.useMemo(() => io("http://localhost:3000"), []);
+  const socket = React.useMemo(
+    () =>
+      io("https://zombie-file-p2p-server-1060514353958.us-central1.run.app/"),
+    []
+  );
 
   const configuration = {
     iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
