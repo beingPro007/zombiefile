@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { Button } from "@/app/components/ui/button";
-import { Card } from "@/app/components/ui/card";
 import { io } from "socket.io-client";
 import { v4 as uuidv4 } from "uuid";
 import { fileTypeFromBuffer } from "file-type";
 import qrCodeGenerator from "@/components/qrCodeGenerator";
 import CopyButton from "./ui/copyButton";
+import { Button } from "./ui/button";
+import Loader from "./ui/loaderComponent/loader";
+
 
 export function FileSender() {
   const [files, setFiles] = useState([]);
@@ -19,11 +20,17 @@ export function FileSender() {
   const [transferStatus, setTransferStatus] = useState("");
   const [transferProgress, setTransferProgress] = useState(0);
   const [link, setlink] = useState(null)
+  const [isSharing, setIsSharing] = useState(false);
 
-  const socket = React.useMemo(
+  const signalingServer =
+    process.env.NODE_ENV !== "development"
+      ? "https://zombie-file-p2p-server-1060514353958.us-central1.run.app/"
+      : "http://localhost:3000";
+
+  const socket = useMemo(
     () =>
-      io("https://zombie-file-p2p-server-1060514353958.us-central1.run.app/"),
-    []
+      io(signalingServer),
+    [signalingServer]
   );
 
   const configuration = {
@@ -145,6 +152,8 @@ export function FileSender() {
       return;
     }
 
+    setIsSharing(true)
+
     const conn = new RTCPeerConnection(configuration);
     setConnection(conn);
 
@@ -189,6 +198,10 @@ export function FileSender() {
     };
   }, [socket]);
 
+  const removeFile = (index) => {
+    setFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
+  };
+
   return (
     <div className="max-w-md mx-auto p-6 bg-white shadow-md rounded-lg">
       <h1 className="text-2xl font-bold mb-4 text-black">File Sender</h1>
@@ -208,8 +221,19 @@ export function FileSender() {
           </h2>
           <ul className="space-y-1">
             {files.map((file, index) => (
-              <li key={index} className="text-sm text-gray-600">
-                {file.name} - {(file.size / 1024 / 1024).toFixed(2)} MB
+              <li
+                key={index}
+                className="text-sm text-gray-600 flex justify-between items-center"
+              >
+                <span>
+                  {file.name} - {(file.size / 1024 / 1024).toFixed(2)} MB
+                </span>
+                <Button
+                  onClick={() => removeFile(index)}
+                  className="ml-4 bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-2 rounded"
+                >
+                  Remove
+                </Button>
               </li>
             ))}
           </ul>
@@ -228,7 +252,7 @@ export function FileSender() {
                 readOnly
                 className="flex-grow px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-800"
               />
-              <CopyButton text={`${link}join/${roomId}` } />
+              <CopyButton text={`${link}join/${roomId}`} />
             </div>
           </div>
         ) : (
@@ -241,12 +265,17 @@ export function FileSender() {
         )}
       </div>
 
-      {peerJoined && (
+      {peerJoined && files.length > 0 && (
         <button
           onClick={startSharing}
-          className="w-full mb-4 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded"
+          className={`w-full py-2 text-white font-medium rounded-md ${
+            isSharing
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-green-500 hover:bg-green-600"
+          }`}
+          disabled={isSharing}
         >
-          Start Sharing Files
+          {isSharing ? "Sharing" : "Start Sharing Files"}
         </button>
       )}
       {transferStatus && (

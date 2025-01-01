@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { io } from "socket.io-client";
-import styles from "./FileReceiver.module.css"; // Import the styles
+import styles from "./FileReceiver.module.css";
 
-const socket = io("https://zombie-file-p2p-server-1060514353958.us-central1.run.app/");
+
 
 export default function FileReceiver() {
     const params = useParams();
@@ -18,6 +18,17 @@ export default function FileReceiver() {
     const [error, setError] = useState(null);
     const [progress, setProgress] = useState(0); // Progress percentage
     const [expectedFileSize, setExpectedFileSize] = useState(null); // Expected file size
+
+     const signalingServer =
+        process.env.NODE_ENV !== "development"
+          ? "https://zombie-file-p2p-server-1060514353958.us-central1.run.app/"
+          : "http://localhost:3000";
+    
+      const socket = useMemo(
+        () =>
+          io(signalingServer),
+        [signalingServer]
+      );
 
     useEffect(() => {
         const queryRoomId = params?.roomId;
