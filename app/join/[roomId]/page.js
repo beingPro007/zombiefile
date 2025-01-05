@@ -73,35 +73,49 @@ export default function FileReceiver() {
 
         connection.ondatachannel = (event) => {
             setPeerJoined(true);
-            dataChannel = event.channel;
+            const dataChannel = event.channel;
 
-            const chunks = [];
+            let chunks = [];
             let currentFileMimeType = null;
             let currentFileName = null;
+            let receivedSize = 0;
 
             dataChannel.onmessage = (event) => {
                 if (typeof event.data === "string") {
-                    if (currentFileMimeType === null) {
-                        currentFileMimeType = event.data;
+                    console.log("Message received:", event.data);
+
+                    if (event.data.startsWith("MIME:")) {
+                        currentFileMimeType = event.data.replace("MIME:", "");
                         setFileMimeType(currentFileMimeType);
-                    } else if (currentFileName === null) {
-                        currentFileName = event.data;
+                        console.log("MIME type set to:", currentFileMimeType);
+                    } else if (event.data.startsWith("NAME:")) {
+                        currentFileName = event.data.replace("NAME:", "");
                         setFileName(currentFileName);
+                        console.log("File name set to:", currentFileName);
                     } else if (event.data.startsWith("SIZE:")) {
                         const size = parseInt(event.data.split(":")[1], 10);
                         setExpectedFileSize(size);
+                        console.log("File size set to:", size);
                     } else if (event.data === "END") {
+                        console.log("File transfer complete.");
                         const receivedFile = new Blob(chunks, { type: currentFileMimeType });
                         downloadFile(receivedFile, currentFileName);
+
+                        // Resetting the states and the chucks so that next file transfer happens smoothly and uniquely
+                        chunks = [];
+                        currentFileMimeType = null;
+                        currentFileName = null;
+                        receivedSize = 0;
                         setFileReceived(true);
+                        setProgress(100);
                     }
                 } else {
+                    // Handle binary data (file chunks) that means which data chunks come after the mime type initializations ans all
                     chunks.push(event.data);
-                    setReceivedChunks((prevChunks) => [...prevChunks, event.data]);
+                    receivedSize += event.data.byteLength;
 
-                    // Update progress based on expected size
+                    // Update progress
                     if (expectedFileSize) {
-                        const receivedSize = chunks.reduce((total, chunk) => total + chunk.byteLength, 0);
                         const percentage = Math.min((receivedSize / expectedFileSize) * 100, 100);
                         setProgress(Math.floor(percentage));
                     }
@@ -116,7 +130,7 @@ export default function FileReceiver() {
                 setError("Error during file transfer.");
             };
         };
-
+        
         return () => {
             connection.close();
             socket.disconnect();

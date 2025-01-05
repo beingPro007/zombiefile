@@ -52,81 +52,95 @@ export function FileSender() {
     console.log("Room created:", newRoomId);
   };
 
-  const sendFiles = (channel) => {
+  const sendFiles = async (channel) => {
     setTransferStatus("Sending files...");
     console.log("Starting file transfer...");
 
-    files.forEach((file) => {
-      console.log(
-        `Preparing to send file: ${file.name} (${(
-          file.size /
-          1024 /
-          1024
-        ).toFixed(2)} MB)`
-      );
+    for (const file of files) {
+      try {
+        console.log(
+          `Preparing to send file: ${file.name} (${(
+            file.size /
+            1024 /
+            1024
+          ).toFixed(2)} MB)`
+        );
+        setTransferProgress(0);
 
-      const reader = new FileReader();
+        const reader = new FileReader();
 
-      reader.onload = async () => {
-        const fileBuffer = reader.result;
+        const fileBuffer = await new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = (error) => reject(error);
+          reader.readAsArrayBuffer(file);
+        });
+
         const type = await fileTypeFromBuffer(fileBuffer);
         const mimeType = type ? type.mime : "application/octet-stream";
 
-        console.log(`Detected MIME type for ${file.name}: ${mimeType}`);
+        // Send metadata
+        channel.send(`MIME:${mimeType}`);
+        channel.send(`NAME:${file.name}`);
+        channel.send(`SIZE:${fileBuffer.byteLength}`);
+        console.log(`Sent metadata for ${file.name}`);
 
-        channel.send(mimeType);
-
-        channel.send(file.name);
-        console.log(`Sent file name: ${file.name}`);
-
-        const chunkSize = 65536;
+        const chunkSize = 90000;
         let offset = 0;
 
-        const sendChunk = () => {
-          if (offset < fileBuffer.byteLength) {
-            if (channel.readyState === "open") {
-              if (channel.bufferedAmount < chunkSize) {
-                const chunk = fileBuffer.slice(offset, offset + chunkSize);
-                channel.send(chunk);
-                offset += chunkSize;
+        const sendChunk = () =>
+          new Promise((resolve) => {
+            const sendNextChunk = () => {
+              if (offset < fileBuffer.byteLength) {
+                if (channel.readyState === "open") {
+                  if (channel.bufferedAmount < chunkSize) {
+                    const chunk = fileBuffer.slice(offset, offset + chunkSize);
+                    channel.send(chunk);
+                    offset += chunkSize;
 
-                const progress = Math.floor(
-                  (offset / fileBuffer.byteLength) * 100
-                );
-                setTransferProgress(progress);
+                    const progress = Math.floor(
+                      (offset / fileBuffer.byteLength) * 100
+                    );
+                    setTransferProgress(progress);
 
-                console.log(
-                  `Sent chunk: Offset ${offset} of ${fileBuffer.byteLength} bytes`
-                );
+                    console.log(
+                      `Sent chunk: Offset ${offset} of ${fileBuffer.byteLength} bytes`
+                    );
+                  } else {
+                    console.log("BufferedAmount is high. Waiting...");
+                  }
+                  setTimeout(sendNextChunk, 50);
+                } else {
+                  setTransferStatus(
+                    "DataChannel is closed. File transfer aborted."
+                  );
+                  console.error(
+                    "DataChannel is closed. File transfer aborted."
+                  );
+                  resolve(); // Exit if the channel is closed
+                }
               } else {
-                console.log("BufferedAmount is high. Waiting...");
+                channel.send("END");
+                console.log(`File transfer complete for: ${file.name}`);
+                resolve();
               }
-              setTimeout(sendChunk, 50); 
-            } else {
-              setTransferStatus(
-                "DataChannel is closed. File transfer aborted."
-              );
-              console.error("DataChannel is closed. File transfer aborted.");
-            }
-          } else {
-            channel.send("END");
-            setTransferStatus(`File transfer complete.`);
-            setTransferProgress(100);
-            console.log("All chunks sent. File transfer complete.");
-          }
-        };
+            };
 
-        sendChunk();
-      };
+            sendNextChunk();
+          });
 
-      reader.onerror = (error) => {
-        console.error(`Error reading file: ${file.name}`, error);
-        setTransferStatus(`Error reading file: ${file.name}`);
-      };
+        await sendChunk();
 
-      reader.readAsArrayBuffer(file);
-      console.log(`Reading file: ${file.name}`);
-    });
+        // Mark the end of this file transfer
+        channel.send("FILE_END");
+        console.log(`FILE_END sent for ${file.name}`);
+      } catch (error) {
+        console.error(`Error sending file ${file.name}:`, error);
+        setTransferStatus(`Error sending file: ${file.name}`);
+      }
+    }
+
+    console.log("All files have been sent.");
+    setTransferStatus("All files sent.");
   };
 
   const handleDataChannelEvents = (channel) => {
