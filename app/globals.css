@@ -5,7 +5,7 @@
 html.dark {
   --background: linear-gradient(135deg, #1c1c1c, #3a3a3a);
   /* Dark gradient for dark mode */
-  --foreground: #eeeeee;
+  --foreground: #ff0000;
 }
 
 body {

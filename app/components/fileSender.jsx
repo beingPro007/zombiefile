@@ -9,6 +9,7 @@ import qrCodeGenerator from "@/components/qrCodeGenerator";
 import CopyButton from "./ui/copyButton";
 import { Button } from "./ui/button";
 import Loader from "./ui/loaderComponent/loader";
+import { motion, AnimatePresence } from "framer-motion";
 
 
 export function FileSender() {
@@ -217,95 +218,156 @@ export function FileSender() {
   };
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-white shadow-md rounded-lg">
-      <h1 className="text-2xl font-bold mb-4 text-black">File Sender</h1>
-      <div
+    <motion.div
+      className="max-w-md mx-auto p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden"
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <motion.h1
+        className="text-2xl font-bold mb-4 text-black dark:text-white"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+      >
+        File Sender
+      </motion.h1>
+      <motion.div
         {...getRootProps()}
-        className={`p-6 mb-4 border-2 border-dashed rounded-lg text-center cursor-pointer ${
-          isDragActive ? "border-blue-500 bg-blue-50" : "border-gray-300"
+        className={`p-6 mb-4 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors duration-300 ${
+          isDragActive
+            ? "border-blue-500 bg-blue-50 dark:bg-blue-900"
+            : "border-gray-300 dark:border-gray-600"
         }`}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
       >
         <input {...getInputProps()} />
-        <p className="text-purple-700">Drop files here or click to upload</p>
-      </div>
-      {files.length > 0 && (
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold mb-2 text-black">
-            Selected Files:
-          </h2>
-          <ul className="space-y-1">
-            {files.map((file, index) => (
-              <li
-                key={index}
-                className="text-sm text-gray-600 flex justify-between items-center"
-              >
-                <span>
-                  {file.name} - {(file.size / 1024 / 1024).toFixed(2)} MB
-                </span>
-                <Button
-                  onClick={() => removeFile(index)}
-                  className="ml-4 bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-2 rounded"
+        <p className="text-purple-500 dark:text-purple-300">
+          Drop files here or click to upload
+        </p>
+      </motion.div>
+      <AnimatePresence>
+        {files.length > 0 && (
+          <motion.div
+            className="mb-4"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <h2 className="text-lg font-semibold mb-2 text-black dark:text-white">
+              Selected Files:
+            </h2>
+            <ul className="space-y-1 max-h-40 overflow-y-scroll border border-gray-200 dark:border-gray-700 rounded-md p-2">
+              {files.map((file, index) => (
+                <motion.li
+                  key={index}
+                  className="text-sm text-gray-600 dark:text-gray-300 flex justify-between items-center"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.2 }}
                 >
-                  Remove
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+                  <span>
+                    {file.name} - {(file.size / 1024 / 1024).toFixed(2)} MB
+                  </span>
+                  <Button
+                    onClick={() => removeFile(index)}
+                    className="ml-4 bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-2 rounded"
+                  >
+                    Remove
+                  </Button>
+                </motion.li>
+              ))}
+            </ul>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="mb-4">
         {roomId ? (
-          <div>
-            <h2 className="text-lg font-semibold mb-2 text-black">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <h2 className="text-lg font-semibold mb-2 text-black dark:text-white">
               Sharing Link:
             </h2>
-            <div className="flex items-center space-x-2 p-4">
+            <div className="flex items-center space-x-2 p-4 bg-gray-100 dark:bg-gray-700 rounded-md">
               <input
                 type="text"
                 value={`${link}join/${roomId}`}
                 readOnly
-                className="flex-grow px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-800"
+                className="flex-grow px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
               />
               <CopyButton text={`${link}join/${roomId}`} />
             </div>
-          </div>
+          </motion.div>
         ) : (
-          <button
+          <motion.button
             onClick={generateLink}
-            className="w-full mb-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
+            className="w-full mb-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors duration-300"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
             Generate Sharing Link
-          </button>
+          </motion.button>
         )}
       </div>
 
-      {peerJoined && files.length > 0 && (
-        <button
-          onClick={startSharing}
-          className={`w-full py-2 text-white font-medium rounded-md ${
-            isSharing
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-green-500 hover:bg-green-600"
-          }`}
-          disabled={isSharing}
-        >
-          {isSharing ? "Sharing" : "Start Sharing Files"}
-        </button>
-      )}
-      {transferStatus && (
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold mb-2">Transfer Status:</h2>
-          <p className="text-slate-500">{transferStatus}</p>
-          {transferProgress > 0 && (
-            <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-              <div
-                className="bg-green-500 h-2.5 rounded-full"
-                style={{ width: `${transferProgress}%` }}
-              ></div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+      <AnimatePresence>
+        {peerJoined && files.length > 0 && (
+          <motion.button
+            onClick={startSharing}
+            className={`w-full py-2 text-white font-medium rounded-md transition-colors duration-300 ${
+              isSharing
+                ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
+                : "bg-green-500 hover:bg-green-600 dark:bg-green-700 dark:hover:bg-green-800"
+            }`}
+            disabled={isSharing}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            whileHover={{ scale: isSharing ? 1 : 1.05 }}
+            whileTap={{ scale: isSharing ? 1 : 0.95 }}
+          >
+            {isSharing ? "Sharing" : "Start Sharing Files"}
+          </motion.button>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {transferStatus && (
+          <motion.div
+            className="mt-4"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <h2 className="text-lg font-semibold mb-2 text-black dark:text-white">
+              Transfer Status:
+            </h2>
+            <p className="text-slate-500 dark:text-slate-300 mb-2">
+              {transferStatus}
+            </p>
+            {transferProgress > 0 && (
+              <motion.div
+                className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5"
+                initial={{ width: 0 }}
+                animate={{ width: "100%" }}
+                transition={{ duration: 0.5 }}
+              >
+                <motion.div
+                  className="bg-green-500 h-2.5 rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${transferProgress}%` }}
+                  transition={{ duration: 0.5 }}
+                ></motion.div>
+              </motion.div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }
