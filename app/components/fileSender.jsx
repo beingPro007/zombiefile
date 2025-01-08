@@ -5,7 +5,6 @@ import { useDropzone } from "react-dropzone";
 import { io } from "socket.io-client";
 import { v4 as uuidv4 } from "uuid";
 import { fileTypeFromBuffer } from "file-type";
-import qrCodeGenerator from "@/components/qrCodeGenerator";
 import CopyButton from "./ui/copyButton";
 import { UploadIcon, LinkIcon,ShareIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
