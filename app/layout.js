@@ -12,40 +12,38 @@ export default function RootLayout({ children }) {
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} bg-gray-100 dark:bg-gray-900`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <div className="min-h-screen flex flex-col relative overflow-hidden">
+          <div className="flex flex-col min-h-screen">
             {/* Header Section */}
             <motion.header
-              className="bg-gradient-to-r from-emerald-600 to-emerald-800 dark:from-emerald-800 dark:to-emerald-950 text-white p-4 text-center relative overflow-hidden"
+              className="bg-transparent text-white p-4 text-left relative z-10"
               initial={{ y: -50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ duration: 0.5 }}
             >
               <motion.h1
-                className="text-3xl font-bold relative z-10"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                className="text-2xl from-neutral-600 font-serif relative cursor-pointer"
               >
                 Zombie File
               </motion.h1>
             </motion.header>
 
             {/* Main Content */}
-            <main className="flex flex-grow relative">
+            <main className="flex-1 flex flex-col lg:flex-row">
               {/* Left Section */}
               <motion.div
-                className="w-1/2 h-[calc(100vh-4rem)] relative overflow-hidden"
+                className="w-full lg:w-1/2 min-h-[50vh] lg:min-h-[calc(100vh-64px)] relative"
                 initial={{ x: -100, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ duration: 0.5, delay: 0.2 }}
               >
                 {/* Smooth Gradient Background */}
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-400 to-pink-500 dark:from-purple-600 dark:to-pink-700 opacity-20" />
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-800 to-pink-500 dark:from-purple-600 dark:to-pink-700 opacity-20" />
 
                 {/* Subtle Moving Waves */}
                 <motion.div
-                  className="absolute inset-0 opacity-10"
+                  className="absolute inset-0 opacity-10 pointer-events-none"
                   style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath d='M0 50 Q 25 30, 50 50 T 100 50' fill='none' stroke='white' stroke-width='2'/%3E%3C/svg%3E")`,
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1000' height='100' viewBox='0 0 100 100'%3E%3Cpath d='M0 50 Q 25 30, 50 50 T 100 50' fill='none' stroke='green' stroke-width='2'/%3E%3C/svg%3E")`,
                     backgroundSize: '100px 100px',
                   }}
                   animate={{
@@ -65,7 +63,7 @@ export default function RootLayout({ children }) {
 
               {/* Right Section */}
               <motion.div
-                className="w-1/2 h-[calc(100vh-4rem)] relative overflow-hidden"
+                className="w-full lg:w-1/2 min-h-[50vh] lg:min-h-[calc(100vh-64px)] relative"
                 initial={{ x: 100, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ duration: 0.5, delay: 0.4 }}
@@ -74,13 +72,13 @@ export default function RootLayout({ children }) {
                 <div className="absolute inset-0 bg-gradient-to-tr from-blue-400 to-indigo-500 dark:from-blue-600 dark:to-indigo-700 opacity-20" />
 
                 {/* Subtle Floating Particles */}
-                <div className="absolute inset-0">
+                <div className="absolute inset-0 pointer-events-none">
                   {[...Array(20)].map((_, index) => (
                     <motion.div
                       key={index}
-                      className="absolute rounded-full bg-white dark:bg-gray-300"
+                      className="absolute rounded-full dark:bg-red-500"
                       style={{
-                        width: Math.random() * 4 + 1,
+                        width: Math.random() * 140 + 1,
                         height: Math.random() * 4 + 1,
                         left: `${Math.random() * 100}%`,
                         top: `${Math.random() * 100}%`,
@@ -100,35 +98,60 @@ export default function RootLayout({ children }) {
                 </div>
 
                 <div className="relative z-10 p-8 flex flex-col justify-center h-full">
-                  <motion.h2
-                    className="text-2xl font-bold text-gray-800 dark:text-white mb-4"
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
+                  <motion.div
+                    className="text-start relative z-10"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.6 }}
                   >
-                    Welcome to Zombie File
-                  </motion.h2>
-                  <motion.p
-                    className="text-gray-600 dark:text-gray-200 mb-4"
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ duration: 0.5, delay: 0.8 }}
-                  >
-                    Zombie File is a modern file upload platform designed to make
-                    file sharing easy, secure, and stylish. With dark mode support
-                    and a clean interface, it's perfect for both personal and
-                    professional use.
-                  </motion.p>
-                  <motion.p
-                    className="text-gray-600 dark:text-gray-200"
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ duration: 0.5, delay: 1 }}
-                  >
-                    Start by uploading your files using the card on the left. Once
-                    uploaded, you'll be able to generate sharing links, manage
-                    transfers, and more!
-                  </motion.p>
+                    <motion.h2
+                      className="text-3xl font-bold mb-6 text-accent-color dark:text-accent-color"
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ duration: 0.5, delay: 0.6 }}
+                    >
+                      Welcome to Zombie File
+                    </motion.h2>
+
+                    <div className="grid grid-cols-2 gap-6 text-left">
+                      <div>
+                        <h3 className="text-xl font-semibold mb-2">Features</h3>
+                        <ul className="space-y-2">
+                          <li className="flex items-center">
+                            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                            P2P File Sharing
+                          </li>
+                          <li className="flex items-center">
+                            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                            No Intermediate Servers
+                          </li>
+                        </ul>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold mb-2">Benefits</h3>
+                        <ul className="space-y-2">
+                          <li className="flex items-center">
+                            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                            Speed Transfers
+                          </li>
+                          <li className="flex items-center">
+                            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                            Secure Sharing
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </motion.div>
+
+
                 </div>
               </motion.div>
             </main>

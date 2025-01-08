@@ -5,10 +5,7 @@ import React from 'react';
 function Layout({ children }) {
     return (
         <div>
-            {/* Render the children (content of the page) */}
             <main>{children}</main>
-
-            {/* Footer component */}
             <Footer />
         </div>
     );
