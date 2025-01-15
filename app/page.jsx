@@ -14,7 +14,6 @@ export default function Home() {
         </h1>
        <FileSender/>
       </div>
-      <Footer/>
     </main>
   );
 }

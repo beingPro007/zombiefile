@@ -6,10 +6,11 @@ import { io } from "socket.io-client";
 import { v4 as uuidv4 } from "uuid";
 import { fileTypeFromBuffer } from "file-type";
 import CopyButton from "./ui/copyButton";
-import { UploadIcon, LinkIcon,ShareIcon } from "lucide-react";
+import { UploadIcon, LinkIcon, ShareIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FileItem } from "./ui/fileItem";
-
+import log from "loglevel";
+import { publicKeyGenerator } from "../lib/keyGenerators";
 
 export function FileSender() {
   const [files, setFiles] = useState([]);
@@ -19,19 +20,16 @@ export function FileSender() {
   const [dataChannel, setDataChannel] = useState(null);
   const [transferStatus, setTransferStatus] = useState("");
   const [transferProgress, setTransferProgress] = useState(0);
-  const [link, setlink] = useState(null)
+  const [link, setlink] = useState(null);
   const [isSharing, setIsSharing] = useState(false);
+  const [publicKey, setPublicKey] = useState(null);
 
   const signalingServer =
     process.env.NODE_ENV !== "development"
       ? "https://zombie-file-p2p-server-1060514353958.us-central1.run.app/"
       : "http://localhost:3000";
 
-  const socket = useMemo(
-    () =>
-      io(signalingServer),
-    [signalingServer]
-  );
+  const socket = useMemo(() => io(signalingServer), [signalingServer]);
 
   const configuration = {
     iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
@@ -43,13 +41,24 @@ export function FileSender() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
 
-  const generateLink = () => {
-    const currentUrl = window.location.href; 
-    setlink(currentUrl); 
-    const newRoomId = uuidv4();
-    setRoomId(newRoomId);
-    socket.emit("create-room", newRoomId);
-    console.log("Room created:", newRoomId);
+  const generateLink = async () => {
+    try {
+      const currentUrl = window.location.href;
+      setlink(currentUrl);
+
+      const newRoomId = uuidv4();
+      setRoomId(newRoomId);
+
+      socket.emit("create-room", newRoomId);
+
+      console.log("Room created:", newRoomId);
+      console.info(publicKey);
+      setPublicKey(publicKey);
+    
+    } catch (error) {
+      console.error("Error generating link or public key:", error);
+      log.error("Error in generateLink:", error.message);
+    }
   };
 
   const sendFiles = async (channel) => {
@@ -166,7 +175,7 @@ export function FileSender() {
       return;
     }
 
-    setIsSharing(true)
+    setIsSharing(true);
 
     const conn = new RTCPeerConnection(configuration);
     setConnection(conn);

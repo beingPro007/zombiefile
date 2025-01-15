@@ -5,8 +5,6 @@ import { useParams } from "next/navigation";
 import { io } from "socket.io-client";
 import styles from "./FileReceiver.module.css";
 
-
-
 export default function FileReceiver() {
     const params = useParams();
     const [roomId, setRoomId] = useState(null);
