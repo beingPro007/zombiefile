@@ -4,6 +4,7 @@ import './globals.css'
 import { Inter } from 'next/font/google'
 import { motion } from 'framer-motion'
 import { ThemeProvider } from '@/components/theme-provider'
+import { Footer } from '@/components/footer'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -69,29 +70,25 @@ export default function RootLayout({ children }) {
                 transition={{ duration: 0.5, delay: 0.4 }}
               >
                 {/* Smooth Gradient Background */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-blue-400 to-indigo-500 dark:from-blue-600 dark:to-indigo-700 opacity-20" />
+                <div className="absolute inset-0 bg-gradient-to-tr from-blue-400 to-indigo-200 dark:from-blue-600 dark:to-indigo-700 opacity-20" />
 
                 {/* Subtle Floating Particles */}
                 <div className="absolute inset-0 pointer-events-none">
                   {[...Array(20)].map((_, index) => (
                     <motion.div
-                      key={index}
-                      className="absolute rounded-full dark:bg-red-500"
+                    key={index}
+                      className="absolute inset-0 opacity-10 pointer-events-none"
                       style={{
-                        width: Math.random() * 140 + 1,
-                        height: Math.random() * 4 + 1,
-                        left: `${Math.random() * 100}%`,
-                        top: `${Math.random() * 100}%`,
+                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath d='M0 50 Q 25 30, 50 50 T 100 50' fill='none' stroke='pink' stroke-width='2'/%3E%3C/svg%3E")`,
+                        backgroundSize: '100px 100px',
                       }}
                       animate={{
-                        y: [0, -30, 0],
-                        opacity: [0, 1, 0],
+                        backgroundPosition: ['0px 0px', '100px 0px'],
                       }}
                       transition={{
-                        duration: Math.random() * 3 + 2,
                         repeat: Infinity,
-                        ease: 'easeInOut',
-                        delay: Math.random() * 2,
+                        duration: 10,
+                        ease: 'linear',
                       }}
                     />
                   ))}
@@ -157,6 +154,7 @@ export default function RootLayout({ children }) {
             </main>
           </div>
         </ThemeProvider>
+        <Footer />
       </body>
     </html>
   )
