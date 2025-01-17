@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FileItem } from "./ui/fileItem";
 import log from "loglevel";
 import { publicKeyGenerator } from "../lib/keyGenerators";
-
+import { generateKey } from "crypto";
 export function FileSender() {
   const [files, setFiles] = useState([]);
   const [roomId, setRoomId] = useState(null);
@@ -23,6 +23,7 @@ export function FileSender() {
   const [link, setlink] = useState(null);
   const [isSharing, setIsSharing] = useState(false);
   const [publicKey, setPublicKey] = useState(null);
+  const [privateKey, setPrivateKey] = useState(null)
 
   const signalingServer =
     process.env.NODE_ENV !== "development"
@@ -41,6 +42,18 @@ export function FileSender() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
 
+  useEffect(() => {
+    if (publicKey !== null) {
+      console.info("Updated PublicKey: ", publicKey);
+    }
+  }, [publicKey]);
+
+  useEffect(() => {
+    if (privateKey !== null) {
+      console.info("Updated PrivateKey: ", privateKey);
+    }
+  }, [privateKey]);
+
   const generateLink = async () => {
     try {
       const currentUrl = window.location.href;
@@ -52,9 +65,21 @@ export function FileSender() {
       socket.emit("create-room", newRoomId);
 
       console.log("Room created:", newRoomId);
-      console.info(publicKey);
-      setPublicKey(publicKey);
-    
+
+      const generateKeyAndSetState = async () => {
+        try {
+          const {generatedPrivateKey, generatedPublicKey} = await publicKeyGenerator();
+          
+          console.log("Generated Public Key: ", generatedPublicKey);
+          setPublicKey(generatedPublicKey);
+          console.log("Generated Private Key: ", generatedPrivateKey);
+          setPrivateKey(generatedPrivateKey);
+        } catch (error) {
+          console.log("Error: ", error);
+        }
+      };
+
+      generateKeyAndSetState();
     } catch (error) {
       console.error("Error generating link or public key:", error);
       log.error("Error in generateLink:", error.message);
@@ -152,6 +177,17 @@ export function FileSender() {
     setTransferStatus("All files sent.");
   };
 
+  const sendPublicKey = (channel) => {
+    try {
+      if (!publicKey) {
+        log.error("Error in getting the publc key");
+      }
+      channel.send(`SENDERPUBLICKEY:${publicKey}`);
+    } catch (error) {
+      console.log("Error in getting the public key");
+    }
+  };
+
   const handleDataChannelEvents = (channel) => {
     channel.onclose = () => {
       console.log("DataChannel closed.");
@@ -165,6 +201,18 @@ export function FileSender() {
 
     channel.onopen = () => {
       console.log("DataChannel is open.");
+      sendPublicKey(channel);
+      channel.onmessage = async (event) => {
+        console.log(`Message Received: ${event.data}`);
+
+        const senderSharedSecret = await crypto.subtle.deriveKey(
+          { name: "ECDH", public: importedReceiverPublicKey },
+          senderPrivateKey, // The sender's private key
+          { name: "AES-GCM", length: 256 },
+          true,
+          ["encrypt", "decrypt"]
+        );
+      };
       sendFiles(channel);
     };
   };
