@@ -3,7 +3,7 @@ name: Deploy the Server to Google Cloud Run
 on:
   push:
     branches:
-      - test
+      - main
     paths:
       - 'p2p-core-signaling/**'
       
