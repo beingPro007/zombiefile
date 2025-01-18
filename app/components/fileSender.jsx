@@ -10,7 +10,13 @@ import { UploadIcon, LinkIcon, ShareIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FileItem } from "./ui/fileItem";
 import log from "loglevel";
-import { publicKeyGenerator } from "../lib/keyGenerators";
+import {
+  publicKeyGenerator,
+  importKeyGeneration,
+  sharedSecretGeneration,
+  convertToCryptoKeyFromBase64ForPrivateKey,
+  convertToCryptoKeyFromBase64ForPublicKey,
+} from "../lib/keyGenerators";
 import { generateKey } from "crypto";
 export function FileSender() {
   const [files, setFiles] = useState([]);
@@ -23,7 +29,8 @@ export function FileSender() {
   const [link, setlink] = useState(null);
   const [isSharing, setIsSharing] = useState(false);
   const [publicKey, setPublicKey] = useState(null);
-  const [privateKey, setPrivateKey] = useState(null)
+  const [privateKey, setPrivateKey] = useState(null);
+  const [sharedSecret, setSharedSecret] = useState(null);
 
   const signalingServer =
     process.env.NODE_ENV !== "development"
@@ -54,6 +61,12 @@ export function FileSender() {
     }
   }, [privateKey]);
 
+  useEffect(() => {
+    if (sharedSecret !== null) {
+      console.info("Updated Shared Secret: ", sharedSecret);
+    }
+  }, [sharedSecret]);
+
   const generateLink = async () => {
     try {
       const currentUrl = window.location.href;
@@ -68,8 +81,9 @@ export function FileSender() {
 
       const generateKeyAndSetState = async () => {
         try {
-          const {generatedPrivateKey, generatedPublicKey} = await publicKeyGenerator();
-          
+          const { generatedPrivateKey, generatedPublicKey } =
+            await publicKeyGenerator();
+
           console.log("Generated Public Key: ", generatedPublicKey);
           setPublicKey(generatedPublicKey);
           console.log("Generated Private Key: ", generatedPrivateKey);
@@ -205,13 +219,36 @@ export function FileSender() {
       channel.onmessage = async (event) => {
         console.log(`Message Received: ${event.data}`);
 
-        const senderSharedSecret = await crypto.subtle.deriveKey(
-          { name: "ECDH", public: importedReceiverPublicKey },
-          senderPrivateKey, // The sender's private key
-          { name: "AES-GCM", length: 256 },
-          true,
-          ["encrypt", "decrypt"]
+        const base64ReceiverPublicKey = event.data.split(":")[1];
+        const binaryReceiverPublicKey = atob(base64ReceiverPublicKey);
+        const uint8ArrayReceiverPublicKey = new Uint8Array(
+          binaryReceiverPublicKey.length
         );
+        for (let i = 0; i < binaryReceiverPublicKey.length; i++) {
+          uint8ArrayReceiverPublicKey[i] =
+            binaryReceiverPublicKey.charCodeAt(i);
+        }
+        console.log(
+          "Receiver public key in form of uint8array",
+          uint8ArrayReceiverPublicKey
+        );
+
+        //Step - 3 :- importKey creation --> This is created to ECDH public key object, which the Web Crypto API can now use to derive the shared secret with the receiver’s private key
+        const importKeyGenerationForSharedSecretFromUint8ArrayOfReceiverPublicKey =
+          await importKeyGeneration(uint8ArrayReceiverPublicKey);
+
+        const privateCryptoKey =
+          await convertToCryptoKeyFromBase64ForPrivateKey(privateKey);
+        //Step - 5 :- Generate the sharedSecret.
+        async function settingSharedSecretState() {
+          const sharedSecret = await sharedSecretGeneration(
+            privateCryptoKey,
+            importKeyGenerationForSharedSecretFromUint8ArrayOfReceiverPublicKey
+          );
+          console.log(sharedSecret);
+          setSharedSecret(sharedSecret);
+        }
+        settingSharedSecretState();
       };
       sendFiles(channel);
     };

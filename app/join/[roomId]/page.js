@@ -115,6 +115,7 @@ export default function FileReceiver() {
                             //Step - 5 :- Generate the sharedSecret.
                             async function settingSharedSecretState() {  
                                 const sharedSecret = await sharedSecretGeneration(privateCryptoKey, importKeyGenerationForSharedSecretFromUint8ArrayOfSenderPublicKey);
+                                console.log(sharedSecret);                                
                                 setSharedSecret(sharedSecret);
                             }
                             settingSharedSecretState();
