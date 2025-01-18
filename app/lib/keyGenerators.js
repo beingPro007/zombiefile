@@ -37,16 +37,55 @@ export async function importKeyGeneration(uint8ArraySenderPublicKey){
     return generatedImportKey;
 } 
 
-export async function sharedSecretGeneration(privateKey, importedKey){
-    const sharedSecret = await crypto.subtle.deriveKey(
-        {
-            name: "ECDH",
-            namedCurve: "P-256",
-        },
-        privateKey,
-        { name: "AES-GCM", length: 256 },
+export async function sharedSecretGeneration(privateKey, importedKey) {
+    try {
+        console.log("Private Key:", privateKey);
+        console.log("Imported Public Key:", importedKey);
+        const sharedSecret = await crypto.subtle.deriveKey(
+            {
+                name: "ECDH",
+                public: importedKey, // Peer public key
+            },
+            privateKey, // Your private key
+            { name: "AES-GCM", length: 256 }, // Derived key format
+            true, // Whether the derived key is extractable
+            ["encrypt", "decrypt"] // Derived key usages
+        );
+        return sharedSecret;
+    } catch (error) {
+        console.error("Error during shared secret generation:", error);
+        throw error;
+    }
+}
+
+export async function convertToCryptoKeyFromBase64ForPrivateKey(base64PrivateKey) {
+    // Step 1: Decode the Base64 string to an ArrayBuffer
+    const rawKey = Uint8Array.from(atob(base64PrivateKey), c => c.charCodeAt(0)).buffer;
+
+    // Step 2: Import the raw key as an ECDH private key
+    const cryptoKey = await crypto.subtle.importKey(
+        "pkcs8", 
+        rawKey, 
+        { name: "ECDH", namedCurve: "P-256" },
         true,
-        ["encrypt", "decrypt"]
-    )
-    return sharedSecret
+        ["deriveKey"]
+    );
+
+    return cryptoKey;
+}
+
+export async function convertToCryptoKeyFromBase64ForPublicKey(base64PublicKey) {
+    // Step 1: Decode the Base64 string to an ArrayBuffer
+    const rawKey = Uint8Array.from(atob(base64PublicKey), c => c.charCodeAt(0)).buffer;
+
+    // Step 2: Import the raw key as an ECDH public key
+    const cryptoKey = await crypto.subtle.importKey(
+        "raw", 
+        rawKey, 
+        { name: "ECDH", namedCurve: "P-256" },
+        true,
+        []
+    );
+
+    return cryptoKey;
 }

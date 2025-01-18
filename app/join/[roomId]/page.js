@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { io } from "socket.io-client";
 import styles from "./FileReceiver.module.css";
-import { importKeyGeneration, publicKeyGenerator, sharedSecretGeneration } from "@/app/lib/keyGenerators";
+import { convertToCryptoKeyFromBase64, convertToCryptoKeyFromBase64ForPrivateKey, convertToCryptoKeyFromBase64ForPublicKey, importKeyGeneration, publicKeyGenerator, sharedSecretGeneration } from "@/app/lib/keyGenerators";
 
 export default function FileReceiver() {
     const params = useParams();
@@ -30,6 +30,11 @@ export default function FileReceiver() {
         [signalingServer]
     );
 
+    useEffect(() => {
+        if(sharedSecret !== null){
+            console.log(sharedSecret);
+        }
+    }, [sharedSecret])
     useEffect(() => {
         const queryRoomId = params?.roomId;
 
@@ -90,31 +95,47 @@ export default function FileReceiver() {
                         console.log("MIME type set to:", currentFileMimeType);
                     } else if (event.data.startsWith("SENDERPUBLICKEY:")) {
                         
-                        //Step - 1 :- Base64 -> uint8array conversion
-                        const base64SenderPublicKey = event.data.split(":")[1];
-                        const binarySenderPublicKey = atob(base64SenderPublicKey);
-                        const uint8ArraySenderPublicKey = new Uint8Array(binarySenderPublicKey.length);
-                        for (let i = 0; i < binarySenderPublicKey.length; i++) {
-                            uint8ArraySenderPublicKey[i] = binarySenderPublicKey.charCodeAt(i);
-                        }
-                        console.log("", uint8ArraySenderPublicKey);
+                        try {
+                            //Step - 1 :- Base64 -> uint8array conversion
+                            const base64SenderPublicKey = event.data.split(":")[1];
+                            const binarySenderPublicKey = atob(base64SenderPublicKey);
+                            const uint8ArraySenderPublicKey = new Uint8Array(binarySenderPublicKey.length);
+                            for (let i = 0; i < binarySenderPublicKey.length; i++) {
+                                uint8ArraySenderPublicKey[i] = binarySenderPublicKey.charCodeAt(i);
+                            }
+                            console.log("Sender public key in form of uint8array", uint8ArraySenderPublicKey);
+    
+                            //Step - 3 :- importKey creation --> This is created to ECDH public key object, which the Web Crypto API can now use to derive the shared secret with the receiver’s private key
+                            const importKeyGenerationForSharedSecretFromUint8ArrayOfSenderPublicKey = await importKeyGeneration(uint8ArraySenderPublicKey);
+    
+                            //Step - 4 :- Generate receiver's key pair
+                            const keyPair = await publicKeyGenerator();
+                            
+                            const privateCryptoKey = await convertToCryptoKeyFromBase64ForPrivateKey(keyPair.generatedPrivateKey)
+                            //Step - 5 :- Generate the sharedSecret.
+                            async function settingSharedSecretState() {  
+                                const sharedSecret = await sharedSecretGeneration(privateCryptoKey, importKeyGenerationForSharedSecretFromUint8ArrayOfSenderPublicKey);
+                                setSharedSecret(sharedSecret);
+                            }
+                            settingSharedSecretState();
 
-                        //Step - 3 :- importKey creation --> This is created to ECDH public key object, which the Web Crypto API can now use to derive the shared secret with the receiver’s private key
-                        const importKeyGenerationForSharedSecretFromUint8ArrayOfSenderPublicKey = await importKeyGeneration(uint8ArraySenderPublicKey);
-
-                        //Step - 4 :- Generate receiver's key pair
-                        const keyPair = await publicKeyGenerator();
-                        
-                        //Step - 5 :- Generate the sharedSecret.
-                        async function settingSharedSecretState() {
-                            const sharedSecret = await sharedSecretGeneration(keyPair.privateKey, importKeyGenerationForSharedSecretFromUint8ArrayOfSenderPublicKey);
-                            setSharedSecret(sharedSecret);
+                            //Step - 6 :- Send the receiver public key so that sender generates its own sharedSecret.
+                            const publicCryptoKey = await convertToCryptoKeyFromBase64ForPublicKey(keyPair.generatedPublicKey)
+                            console.log(publicCryptoKey);
+                            
+                            const receiverPublicKey = await crypto.subtle.exportKey("raw", publicCryptoKey);
+                            console.log("Reciever public key in crypto key form", receiverPublicKey);
+                            
+                            const receiverPublicKeyBase64 = btoa(
+                                String.fromCharCode(...new Uint8Array(receiverPublicKey))
+                            );
+                            console.log("Sending public key on datachannel");
+                            
+                            dataChannel.send(`RECEIVERPUBLICKEY:${receiverPublicKeyBase64}`);
+                        } catch (error) {
+                            console.log("Error in generating the shared secret: ", error);
+                            
                         }
-                        settingSharedSecretState()
-                        
-                        //Step - 6 :- Send the receiver public key so that sender generates its own sharedSecret.
-                        const receiverPublicKey = await crypto.subtle.exportKey("raw", keyPair.publicKey);
-                        dataChannel.send(`RECEIVERPUBLICKEY:${receiverPublicKey}`)
 
                     } else if (event.data.startsWith("NAME:")) {
                         currentFileName = event.data.replace("NAME:", "");
