@@ -10,8 +10,14 @@ import { UploadIcon, LinkIcon, ShareIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FileItem } from "./ui/fileItem";
 import log from "loglevel";
-import { publicKeyGenerator } from "../lib/keyGenerators";
-
+import {
+  publicKeyGenerator,
+  importKeyGeneration,
+  sharedSecretGeneration,
+  convertToCryptoKeyFromBase64ForPrivateKey,
+  convertToCryptoKeyFromBase64ForPublicKey,
+} from "../lib/keyGenerators";
+import { generateKey } from "crypto";
 export function FileSender() {
   const [files, setFiles] = useState([]);
   const [roomId, setRoomId] = useState(null);
@@ -23,6 +29,8 @@ export function FileSender() {
   const [link, setlink] = useState(null);
   const [isSharing, setIsSharing] = useState(false);
   const [publicKey, setPublicKey] = useState(null);
+  const [privateKey, setPrivateKey] = useState(null);
+  const [sharedSecret, setSharedSecret] = useState(null);
 
   const signalingServer =
     process.env.NODE_ENV !== "development"
@@ -41,6 +49,24 @@ export function FileSender() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
 
+  useEffect(() => {
+    if (publicKey !== null) {
+      console.info("Updated PublicKey: ", publicKey);
+    }
+  }, [publicKey]);
+
+  useEffect(() => {
+    if (privateKey !== null) {
+      console.info("Updated PrivateKey: ", privateKey);
+    }
+  }, [privateKey]);
+
+  useEffect(() => {
+    if (sharedSecret !== null) {
+      console.info("Updated Shared Secret: ", sharedSecret);
+    }
+  }, [sharedSecret]);
+
   const generateLink = async () => {
     try {
       const currentUrl = window.location.href;
@@ -52,9 +78,22 @@ export function FileSender() {
       socket.emit("create-room", newRoomId);
 
       console.log("Room created:", newRoomId);
-      console.info(publicKey);
-      setPublicKey(publicKey);
-    
+
+      const generateKeyAndSetState = async () => {
+        try {
+          const { generatedPrivateKey, generatedPublicKey } =
+            await publicKeyGenerator();
+
+          console.log("Generated Public Key: ", generatedPublicKey);
+          setPublicKey(generatedPublicKey);
+          console.log("Generated Private Key: ", generatedPrivateKey);
+          setPrivateKey(generatedPrivateKey);
+        } catch (error) {
+          console.log("Error: ", error);
+        }
+      };
+
+      generateKeyAndSetState();
     } catch (error) {
       console.error("Error generating link or public key:", error);
       log.error("Error in generateLink:", error.message);
@@ -152,6 +191,17 @@ export function FileSender() {
     setTransferStatus("All files sent.");
   };
 
+  const sendPublicKey = (channel) => {
+    try {
+      if (!publicKey) {
+        log.error("Error in getting the publc key");
+      }
+      channel.send(`SENDERPUBLICKEY:${publicKey}`);
+    } catch (error) {
+      console.log("Error in getting the public key");
+    }
+  };
+
   const handleDataChannelEvents = (channel) => {
     channel.onclose = () => {
       console.log("DataChannel closed.");
@@ -165,6 +215,41 @@ export function FileSender() {
 
     channel.onopen = () => {
       console.log("DataChannel is open.");
+      sendPublicKey(channel);
+      channel.onmessage = async (event) => {
+        console.log(`Message Received: ${event.data}`);
+
+        const base64ReceiverPublicKey = event.data.split(":")[1];
+        const binaryReceiverPublicKey = atob(base64ReceiverPublicKey);
+        const uint8ArrayReceiverPublicKey = new Uint8Array(
+          binaryReceiverPublicKey.length
+        );
+        for (let i = 0; i < binaryReceiverPublicKey.length; i++) {
+          uint8ArrayReceiverPublicKey[i] =
+            binaryReceiverPublicKey.charCodeAt(i);
+        }
+        console.log(
+          "Receiver public key in form of uint8array",
+          uint8ArrayReceiverPublicKey
+        );
+
+        //Step - 3 :- importKey creation --> This is created to ECDH public key object, which the Web Crypto API can now use to derive the shared secret with the receiver’s private key
+        const importKeyGenerationForSharedSecretFromUint8ArrayOfReceiverPublicKey =
+          await importKeyGeneration(uint8ArrayReceiverPublicKey);
+
+        const privateCryptoKey =
+          await convertToCryptoKeyFromBase64ForPrivateKey(privateKey);
+        //Step - 5 :- Generate the sharedSecret.
+        async function settingSharedSecretState() {
+          const sharedSecret = await sharedSecretGeneration(
+            privateCryptoKey,
+            importKeyGenerationForSharedSecretFromUint8ArrayOfReceiverPublicKey
+          );
+          console.log(sharedSecret);
+          setSharedSecret(sharedSecret);
+        }
+        settingSharedSecretState();
+      };
       sendFiles(channel);
     };
   };

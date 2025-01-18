@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { io } from "socket.io-client";
 import styles from "./FileReceiver.module.css";
+import { convertToCryptoKeyFromBase64, convertToCryptoKeyFromBase64ForPrivateKey, convertToCryptoKeyFromBase64ForPublicKey, importKeyGeneration, publicKeyGenerator, sharedSecretGeneration } from "@/app/lib/keyGenerators";
 
 export default function FileReceiver() {
     const params = useParams();
@@ -16,18 +17,24 @@ export default function FileReceiver() {
     const [error, setError] = useState(null);
     const [progress, setProgress] = useState(0); // Progress percentage
     const [expectedFileSize, setExpectedFileSize] = useState(null); // Expected file size
+    const [sharedSecret, setSharedSecret] = useState(null);
 
-     const signalingServer =
+    const signalingServer =
         process.env.NODE_ENV !== "development"
-          ? "https://zombie-file-p2p-server-1060514353958.us-central1.run.app/"
-          : "http://localhost:3000";
-    
-      const socket = useMemo(
-        () =>
-          io(signalingServer),
-        [signalingServer]
-      );
+            ? "https://zombie-file-p2p-server-1060514353958.us-central1.run.app/"
+            : "http://localhost:3000";
 
+    const socket = useMemo(
+        () =>
+            io(signalingServer),
+        [signalingServer]
+    );
+
+    useEffect(() => {
+        if(sharedSecret !== null){
+            console.log(sharedSecret);
+        }
+    }, [sharedSecret])
     useEffect(() => {
         const queryRoomId = params?.roomId;
 
@@ -78,7 +85,7 @@ export default function FileReceiver() {
             let currentFileName = null;
             let receivedSize = 0;
 
-            dataChannel.onmessage = (event) => {
+            dataChannel.onmessage = async (event) => {
                 if (typeof event.data === "string") {
                     console.log("Message received:", event.data);
 
@@ -86,6 +93,51 @@ export default function FileReceiver() {
                         currentFileMimeType = event.data.replace("MIME:", "");
                         setFileMimeType(currentFileMimeType);
                         console.log("MIME type set to:", currentFileMimeType);
+                    } else if (event.data.startsWith("SENDERPUBLICKEY:")) {
+                        
+                        try {
+                            //Step - 1 :- Base64 -> uint8array conversion
+                            const base64SenderPublicKey = event.data.split(":")[1];
+                            const binarySenderPublicKey = atob(base64SenderPublicKey);
+                            const uint8ArraySenderPublicKey = new Uint8Array(binarySenderPublicKey.length);
+                            for (let i = 0; i < binarySenderPublicKey.length; i++) {
+                                uint8ArraySenderPublicKey[i] = binarySenderPublicKey.charCodeAt(i);
+                            }
+                            console.log("Sender public key in form of uint8array", uint8ArraySenderPublicKey);
+    
+                            //Step - 3 :- importKey creation --> This is created to ECDH public key object, which the Web Crypto API can now use to derive the shared secret with the receiver’s private key
+                            const importKeyGenerationForSharedSecretFromUint8ArrayOfSenderPublicKey = await importKeyGeneration(uint8ArraySenderPublicKey);
+    
+                            //Step - 4 :- Generate receiver's key pair
+                            const keyPair = await publicKeyGenerator();
+                            
+                            const privateCryptoKey = await convertToCryptoKeyFromBase64ForPrivateKey(keyPair.generatedPrivateKey)
+                            //Step - 5 :- Generate the sharedSecret.
+                            async function settingSharedSecretState() {  
+                                const sharedSecret = await sharedSecretGeneration(privateCryptoKey, importKeyGenerationForSharedSecretFromUint8ArrayOfSenderPublicKey);
+                                console.log(sharedSecret);                                
+                                setSharedSecret(sharedSecret);
+                            }
+                            settingSharedSecretState();
+
+                            //Step - 6 :- Send the receiver public key so that sender generates its own sharedSecret.
+                            const publicCryptoKey = await convertToCryptoKeyFromBase64ForPublicKey(keyPair.generatedPublicKey)
+                            console.log(publicCryptoKey);
+                            
+                            const receiverPublicKey = await crypto.subtle.exportKey("raw", publicCryptoKey);
+                            console.log("Reciever public key in crypto key form", receiverPublicKey);
+                            
+                            const receiverPublicKeyBase64 = btoa(
+                                String.fromCharCode(...new Uint8Array(receiverPublicKey))
+                            );
+                            console.log("Sending public key on datachannel");
+                            
+                            dataChannel.send(`RECEIVERPUBLICKEY:${receiverPublicKeyBase64}`);
+                        } catch (error) {
+                            console.log("Error in generating the shared secret: ", error);
+                            
+                        }
+
                     } else if (event.data.startsWith("NAME:")) {
                         currentFileName = event.data.replace("NAME:", "");
                         setFileName(currentFileName);
@@ -99,7 +151,6 @@ export default function FileReceiver() {
                         const receivedFile = new Blob(chunks, { type: currentFileMimeType });
                         downloadFile(receivedFile, currentFileName);
 
-                        // Resetting the states and the chucks so that next file transfer happens smoothly and uniquely
                         chunks = [];
                         currentFileMimeType = null;
                         currentFileName = null;
@@ -128,7 +179,7 @@ export default function FileReceiver() {
                 setError("Error during file transfer.");
             };
         };
-        
+
         return () => {
             connection.close();
             socket.disconnect();
