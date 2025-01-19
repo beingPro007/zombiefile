@@ -18,6 +18,7 @@ import {
   convertToCryptoKeyFromBase64ForPublicKey,
 } from "../lib/keyGenerators";
 import { generateKey } from "crypto";
+import { encryptChunk } from "../lib/chunksEncyptionAndDecryption";
 export function FileSender() {
   const [files, setFiles] = useState([]);
   const [roomId, setRoomId] = useState(null);
@@ -31,6 +32,7 @@ export function FileSender() {
   const [publicKey, setPublicKey] = useState(null);
   const [privateKey, setPrivateKey] = useState(null);
   const [sharedSecret, setSharedSecret] = useState(null);
+  const [channel, setChannel] = useState(null);
 
   const signalingServer =
     process.env.NODE_ENV !== "development"
@@ -51,19 +53,22 @@ export function FileSender() {
 
   useEffect(() => {
     if (publicKey !== null) {
-      console.info("Updated PublicKey: ", publicKey);
+      console.info("Public Key Set on the Sender Side");
     }
   }, [publicKey]);
 
   useEffect(() => {
     if (privateKey !== null) {
-      console.info("Updated PrivateKey: ", privateKey);
+      console.info("Private Key Set on the Sender Side");
     }
   }, [privateKey]);
 
   useEffect(() => {
     if (sharedSecret !== null) {
-      console.info("Updated Shared Secret: ", sharedSecret);
+      console.info(
+        "Shared Secret set successfully...File sharing will start in moments"
+      );
+      sendFiles(channel);
     }
   }, [sharedSecret]);
 
@@ -81,13 +86,11 @@ export function FileSender() {
 
       const generateKeyAndSetState = async () => {
         try {
-          const { generatedPrivateKey, generatedPublicKey } =
-            await publicKeyGenerator();
-
-          console.log("Generated Public Key: ", generatedPublicKey);
+          const { generatedPrivateKey, generatedPublicKey } = await publicKeyGenerator();
+          
           setPublicKey(generatedPublicKey);
-          console.log("Generated Private Key: ", generatedPrivateKey);
           setPrivateKey(generatedPrivateKey);
+
         } catch (error) {
           console.log("Error: ", error);
         }
@@ -137,12 +140,22 @@ export function FileSender() {
 
         const sendChunk = () =>
           new Promise((resolve) => {
-            const sendNextChunk = () => {
+            const sendNextChunk = async () => {
               if (offset < fileBuffer.byteLength) {
                 if (channel.readyState === "open") {
                   if (channel.bufferedAmount < chunkSize) {
                     const chunk = fileBuffer.slice(offset, offset + chunkSize);
-                    channel.send(chunk);
+
+                    const encryptedChunk = await encryptChunk(
+                      sharedSecret,
+                      chunk
+                    );
+
+                    if (!encryptedChunk) {
+                      console.error("Encrypted Chunk is Null");
+                    }
+
+                    channel.send(encryptedChunk);
                     offset += chunkSize;
 
                     const progress = Math.floor(
@@ -164,7 +177,7 @@ export function FileSender() {
                   console.error(
                     "DataChannel is closed. File transfer aborted."
                   );
-                  resolve(); // Exit if the channel is closed
+                  resolve();
                 }
               } else {
                 channel.send("END");
@@ -178,7 +191,6 @@ export function FileSender() {
 
         await sendChunk();
 
-        // Mark the end of this file transfer
         channel.send("FILE_END");
         console.log(`FILE_END sent for ${file.name}`);
       } catch (error) {
@@ -215,42 +227,39 @@ export function FileSender() {
 
     channel.onopen = () => {
       console.log("DataChannel is open.");
+      setChannel(channel);
       sendPublicKey(channel);
       channel.onmessage = async (event) => {
-        console.log(`Message Received: ${event.data}`);
-
-        const base64ReceiverPublicKey = event.data.split(":")[1];
-        const binaryReceiverPublicKey = atob(base64ReceiverPublicKey);
-        const uint8ArrayReceiverPublicKey = new Uint8Array(
-          binaryReceiverPublicKey.length
-        );
-        for (let i = 0; i < binaryReceiverPublicKey.length; i++) {
-          uint8ArrayReceiverPublicKey[i] =
-            binaryReceiverPublicKey.charCodeAt(i);
-        }
-        console.log(
-          "Receiver public key in form of uint8array",
-          uint8ArrayReceiverPublicKey
-        );
-
-        //Step - 3 :- importKey creation --> This is created to ECDH public key object, which the Web Crypto API can now use to derive the shared secret with the receiver’s private key
-        const importKeyGenerationForSharedSecretFromUint8ArrayOfReceiverPublicKey =
-          await importKeyGeneration(uint8ArrayReceiverPublicKey);
-
-        const privateCryptoKey =
-          await convertToCryptoKeyFromBase64ForPrivateKey(privateKey);
-        //Step - 5 :- Generate the sharedSecret.
-        async function settingSharedSecretState() {
-          const sharedSecret = await sharedSecretGeneration(
-            privateCryptoKey,
-            importKeyGenerationForSharedSecretFromUint8ArrayOfReceiverPublicKey
+        try {
+          const base64ReceiverPublicKey = event.data.split(":")[1];
+          const binaryReceiverPublicKey = atob(base64ReceiverPublicKey);
+          const uint8ArrayReceiverPublicKey = new Uint8Array(
+            binaryReceiverPublicKey.length
           );
-          console.log(sharedSecret);
-          setSharedSecret(sharedSecret);
+          for (let i = 0; i < binaryReceiverPublicKey.length; i++) {
+            uint8ArrayReceiverPublicKey[i] =
+              binaryReceiverPublicKey.charCodeAt(i);
+          }
+
+          //Step - 3 :- importKey creation --> This is created to ECDH public key object, which the Web Crypto API can now use to derive the shared secret with the receiver’s private key
+          const importKeyGenerationForSharedSecretFromUint8ArrayOfReceiverPublicKey =
+            await importKeyGeneration(uint8ArrayReceiverPublicKey);
+
+          const privateCryptoKey =
+            await convertToCryptoKeyFromBase64ForPrivateKey(privateKey);
+          //Step - 5 :- Generate the sharedSecret.
+          async function settingSharedSecretState() {
+            const sharedSecret = await sharedSecretGeneration(
+              privateCryptoKey,
+              importKeyGenerationForSharedSecretFromUint8ArrayOfReceiverPublicKey
+            );
+            setSharedSecret(sharedSecret);
+          }
+          settingSharedSecretState();
+        } catch (error) {
+          console.error("Error in setting the shared secret", error);
         }
-        settingSharedSecretState();
       };
-      sendFiles(channel);
     };
   };
 

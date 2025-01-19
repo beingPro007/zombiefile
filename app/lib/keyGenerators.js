@@ -39,17 +39,15 @@ export async function importKeyGeneration(uint8ArraySenderPublicKey){
 
 export async function sharedSecretGeneration(privateKey, importedKey) {
     try {
-        console.log("Private Key:", privateKey);
-        console.log("Imported Public Key:", importedKey);
         const sharedSecret = await crypto.subtle.deriveKey(
             {
                 name: "ECDH",
-                public: importedKey, // Peer public key
+                public: importedKey,
             },
-            privateKey, // Your private key
-            { name: "AES-GCM", length: 256 }, // Derived key format
-            true, // Whether the derived key is extractable
-            ["encrypt", "decrypt"] // Derived key usages
+            privateKey,
+            { name: "AES-GCM", length: 256 },
+            true,
+            ["encrypt", "decrypt"]
         );
         return sharedSecret;
     } catch (error) {
