@@ -1,23 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import { io } from "socket.io-client";
 import styles from "./FileReceiver.module.css";
-import { convertToCryptoKeyFromBase64, convertToCryptoKeyFromBase64ForPrivateKey, convertToCryptoKeyFromBase64ForPublicKey, importKeyGeneration, publicKeyGenerator, sharedSecretGeneration } from "@/app/lib/keyGenerators";
+import { convertToCryptoKeyFromBase64ForPrivateKey, convertToCryptoKeyFromBase64ForPublicKey, importKeyGeneration, publicKeyGenerator, sharedSecretGeneration } from "@/app/lib/keyGenerators";
+import { decryptChunk } from "@/app/lib/chunksEncyptionAndDecryption";
 
 export default function FileReceiver() {
     const params = useParams();
     const [roomId, setRoomId] = useState(null);
-    const [receivedChunks, setReceivedChunks] = useState([]); // Store chunks
     const [fileName, setFileName] = useState(null);
     const [fileMimeType, setFileMimeType] = useState(null);
     const [peerJoined, setPeerJoined] = useState(false);
     const [fileReceived, setFileReceived] = useState(false);
     const [error, setError] = useState(null);
-    const [progress, setProgress] = useState(0); // Progress percentage
-    const [expectedFileSize, setExpectedFileSize] = useState(null); // Expected file size
+    const [progress, setProgress] = useState(0);
+    const [expectedFileSize, setExpectedFileSize] = useState(null);
     const [sharedSecret, setSharedSecret] = useState(null);
+    const sharedSecretRef = useRef(null);
 
     const signalingServer =
         process.env.NODE_ENV !== "development"
@@ -32,9 +33,11 @@ export default function FileReceiver() {
 
     useEffect(() => {
         if(sharedSecret !== null){
-            console.log(sharedSecret);
+            console.info("Shared Secret set on the receiver side successfully");
+            sharedSecretRef.current = sharedSecret;
         }
     }, [sharedSecret])
+    
     useEffect(() => {
         const queryRoomId = params?.roomId;
 
@@ -48,8 +51,6 @@ export default function FileReceiver() {
         const connection = new RTCPeerConnection({
             iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
         });
-
-        let dataChannel = null;
 
         socket.emit("join-room", queryRoomId);
 
@@ -77,6 +78,7 @@ export default function FileReceiver() {
         });
 
         connection.ondatachannel = (event) => {
+
             setPeerJoined(true);
             const dataChannel = event.channel;
 
@@ -86,9 +88,29 @@ export default function FileReceiver() {
             let receivedSize = 0;
 
             dataChannel.onmessage = async (event) => {
-                if (typeof event.data === "string") {
-                    console.log("Message received:", event.data);
 
+                if (typeof event.data === "string") {
+                    
+                    if (event.data.startsWith("{") && event.data.endsWith("}")) {
+                        try {
+                            
+                            const parsedData = JSON.parse(event.data);
+                            const encryptedChunk = new Uint8Array(parsedData.encryptedChunk).buffer;
+                            const iv = new Uint8Array(parsedData.iv);
+
+                            const decryptedChunk = await decryptChunk(sharedSecretRef.current, encryptedChunk, iv);
+
+                            chunks.push(decryptedChunk);
+                            receivedSize += encryptedChunk.byteLength;
+                            
+                            if (expectedFileSize) {
+                                const percentage = Math.min((receivedSize / expectedFileSize) * 100, 100);
+                                setProgress(Math.floor(percentage));
+                            }
+                        } catch (error) {
+                            console.error("Failed to parse JSON:", error, event.data);
+                        }
+                    }
                     if (event.data.startsWith("MIME:")) {
                         currentFileMimeType = event.data.replace("MIME:", "");
                         setFileMimeType(currentFileMimeType);
@@ -103,8 +125,7 @@ export default function FileReceiver() {
                             for (let i = 0; i < binarySenderPublicKey.length; i++) {
                                 uint8ArraySenderPublicKey[i] = binarySenderPublicKey.charCodeAt(i);
                             }
-                            console.log("Sender public key in form of uint8array", uint8ArraySenderPublicKey);
-    
+                            
                             //Step - 3 :- importKey creation --> This is created to ECDH public key object, which the Web Crypto API can now use to derive the shared secret with the receiver’s private key
                             const importKeyGenerationForSharedSecretFromUint8ArrayOfSenderPublicKey = await importKeyGeneration(uint8ArraySenderPublicKey);
     
@@ -114,23 +135,19 @@ export default function FileReceiver() {
                             const privateCryptoKey = await convertToCryptoKeyFromBase64ForPrivateKey(keyPair.generatedPrivateKey)
                             //Step - 5 :- Generate the sharedSecret.
                             async function settingSharedSecretState() {  
-                                const sharedSecret = await sharedSecretGeneration(privateCryptoKey, importKeyGenerationForSharedSecretFromUint8ArrayOfSenderPublicKey);
-                                console.log(sharedSecret);                                
-                                setSharedSecret(sharedSecret);
+                                const generatedSharedSecret = await sharedSecretGeneration(privateCryptoKey, importKeyGenerationForSharedSecretFromUint8ArrayOfSenderPublicKey);
+                                setSharedSecret(generatedSharedSecret);                             
                             }
                             settingSharedSecretState();
 
                             //Step - 6 :- Send the receiver public key so that sender generates its own sharedSecret.
                             const publicCryptoKey = await convertToCryptoKeyFromBase64ForPublicKey(keyPair.generatedPublicKey)
-                            console.log(publicCryptoKey);
                             
                             const receiverPublicKey = await crypto.subtle.exportKey("raw", publicCryptoKey);
-                            console.log("Reciever public key in crypto key form", receiverPublicKey);
                             
                             const receiverPublicKeyBase64 = btoa(
                                 String.fromCharCode(...new Uint8Array(receiverPublicKey))
                             );
-                            console.log("Sending public key on datachannel");
                             
                             dataChannel.send(`RECEIVERPUBLICKEY:${receiverPublicKeyBase64}`);
                         } catch (error) {
@@ -158,17 +175,9 @@ export default function FileReceiver() {
                         setFileReceived(true);
                         setProgress(100);
                     }
-                } else {
-                    // Handle binary data (file chunks) that means which data chunks come after the mime type initializations ans all
-                    chunks.push(event.data);
-                    receivedSize += event.data.byteLength;
 
-                    // Update progress
-                    if (expectedFileSize) {
-                        const percentage = Math.min((receivedSize / expectedFileSize) * 100, 100);
-                        setProgress(Math.floor(percentage));
-                    }
                 }
+
             };
 
             dataChannel.onclose = () => {
@@ -176,7 +185,7 @@ export default function FileReceiver() {
             };
 
             dataChannel.onerror = (error) => {
-                setError("Error during file transfer.");
+                setError("Error during file transfer.", error);
             };
         };
 
