@@ -135,7 +135,7 @@ export function FileSender() {
         channel.send(`SIZE:${fileBuffer.byteLength}`);
         console.log(`Sent metadata for ${file.name}`);
 
-        const chunkSize = 90000;
+        const chunkSize = 50000;
         let offset = 0;
 
         const sendChunk = () =>
