@@ -40,7 +40,6 @@ process.on("SIGINT", () => {
 });
 
 io.on("connection", (socket) => {
-    console.log(`[INFO] User connected: ${socket.id}`);
 
     // Room creation
     socket.on("create-room", (roomId, callback) => {
@@ -54,14 +53,12 @@ io.on("connection", (socket) => {
         }
         rooms[roomId].add(socket.id);
         socket.join(roomId);
-        console.log(`[INFO] Room created: ${roomId} by ${socket.id}`);
         if (callback) callback({ status: "ok", roomId });
     });
 
     // Joining a room
     socket.on("join-room", (roomId, callback) => {
         if (!roomId || typeof roomId !== "string") {
-            console.error(`[ERROR] Invalid roomId from ${socket.id}`);
             if (callback) callback({ status: "error", message: "Invalid roomId" });
             return;
         }
@@ -71,10 +68,8 @@ io.on("connection", (socket) => {
             socket.join(roomId);
             const peerCount = room.size;
             socket.to(roomId).emit("peer-joined", { peerCount });
-            console.log(`[INFO] User ${socket.id} joined room: ${roomId}`);
             if (callback) callback({ status: "ok", peerCount });
         } else {
-            console.log(`[ERROR] Room ${roomId} does not exist.`);
             if (callback) callback({ status: "error", message: "Room does not exist" });
         }
     });
@@ -88,7 +83,6 @@ io.on("connection", (socket) => {
         }
         try {
             socket.to(roomId).emit("offer", { offer });
-            console.log(`[INFO] Offer sent to room: ${roomId}`);
             if (callback) callback({ status: "ok" });
         } catch (error) {
             console.error(`[ERROR] Error sending offer: ${error.message}`);
@@ -105,7 +99,6 @@ io.on("connection", (socket) => {
         }
         try {
             socket.to(roomId).emit("answer", { answer });
-            console.log(`[INFO] Answer sent to room: ${roomId}`);
             if (callback) callback({ status: "ok" });
         } catch (error) {
             console.error(`[ERROR] Error sending answer: ${error.message}`);
@@ -122,7 +115,6 @@ io.on("connection", (socket) => {
         }
         try {
             socket.to(roomId).emit("ice-candidate", { candidate });
-            console.log(`[INFO] ICE candidate sent to room: ${roomId}`);
             if (callback) callback({ status: "ok" });
         } catch (error) {
             console.error(`[ERROR] Error sending ICE candidate: ${error.message}`);
@@ -136,13 +128,12 @@ io.on("connection", (socket) => {
             if (rooms[roomId]) {
                 rooms[roomId].delete(socket.id);
                 socket.to(roomId).emit("peer-left", { peerCount: rooms[roomId].size });
-                console.log(`[INFO] User ${socket.id} is leaving room: ${roomId}`);
             }
         });
     });
 
     socket.on("disconnect", () => {
-        console.log(`[INFO] User disconnected: ${socket.id}`);
+        
     });
 });
 
