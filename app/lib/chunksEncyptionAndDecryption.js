@@ -23,5 +23,5 @@ export async function decryptChunk(sharedSecret, receivedData, iv) {
         receivedData
     )
 
-    return decryptedChunk;
+    return new Uint8Array(decryptedChunk);
 }

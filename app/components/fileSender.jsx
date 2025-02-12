@@ -15,9 +15,8 @@ import {
   importKeyGeneration,
   sharedSecretGeneration,
   convertToCryptoKeyFromBase64ForPrivateKey,
-  convertToCryptoKeyFromBase64ForPublicKey,
 } from "../lib/keyGenerators";
-import { generateKey } from "crypto";
+import { deflateSync } from "fflate";
 import { encryptChunk } from "../lib/chunksEncyptionAndDecryption";
 export function FileSender() {
   const [files, setFiles] = useState([]);
@@ -72,6 +71,40 @@ export function FileSender() {
     }
   }, [sharedSecret]);
 
+  // This helper returns a dynamic (random) chunk size based on available buffer space.
+  function getDynamicChunkSize(channel, fileBuffer, offset) {
+    const TARGET_BUFFER = 75000;
+    const MIN_CHUNK_SIZE = 10000;
+    const MAX_CHUNK_SIZE = 100000;
+
+    const availableBuffer = TARGET_BUFFER - channel.bufferedAmount;
+
+    if (availableBuffer < MIN_CHUNK_SIZE) return 0;
+
+    const remainingBytes = fileBuffer.byteLength - offset;
+    const maxPossible = Math.min(
+      availableBuffer,
+      MAX_CHUNK_SIZE,
+      remainingBytes
+    );
+
+    const dynamicChunkSize =
+      Math.floor(Math.random() * (maxPossible - MIN_CHUNK_SIZE + 1)) +
+      MIN_CHUNK_SIZE;
+
+    return dynamicChunkSize;
+  }
+
+  function compressionChunk() {
+    const chunkInUInt8Buffer = new Uint8Array(chunk);
+    const compressedData = deflateSync(chunkInUInt8Buffer);
+    console.log(
+      "Data is compressing... And the data length after compression is...",
+      compressedData.length
+    );
+    return compressedData;
+  }
+
   const generateLink = async () => {
     try {
       const currentUrl = window.location.href;
@@ -86,11 +119,11 @@ export function FileSender() {
 
       const generateKeyAndSetState = async () => {
         try {
-          const { generatedPrivateKey, generatedPublicKey } = await publicKeyGenerator();
-          
+          const { generatedPrivateKey, generatedPublicKey } =
+            await publicKeyGenerator();
+
           setPublicKey(generatedPublicKey);
           setPrivateKey(generatedPrivateKey);
-
         } catch (error) {
           console.log("Error: ", error);
         }
@@ -101,6 +134,30 @@ export function FileSender() {
       console.error("Error generating link or public key:", error);
       log.error("Error in generateLink:", error.message);
     }
+  };
+
+  const shouldCompress = (fileMimeType) => {
+    if (!fileMimeType) return true;
+
+    const nonCompressibleTypes = [
+      "video/",
+      "audio/",
+      "image/",
+      "application/zip",
+      "application/x-rar",
+      "application/pdf",
+      "application/x-7z-compressed",
+    ];
+
+    return !nonCompressibleTypes.some((prefix) =>
+      fileMimeType.startsWith(prefix)
+    );
+  };
+
+  const isItWorthCompressing = (fileBuffer) => {
+    const compressed = deflateSync(fileBuffer);
+    const compressionRatio = compressed.length / fileBuffer.length;
+    return compressionRatio < 0.9;
   };
 
   const sendFiles = async (channel) => {
@@ -129,13 +186,20 @@ export function FileSender() {
         const type = await fileTypeFromBuffer(fileBuffer);
         const mimeType = type ? type.mime : "application/octet-stream";
 
+        let compressionNeeded = false;
+        if (shouldCompress(mimeType) && isItWorthCompressing(fileBuffer)) {
+          console.log("Compression of this file will benficial, Compressing Every Chunk....")
+          compressionNeeded = true;
+        }
         // Send metadata
         channel.send(`MIME:${mimeType}`);
         channel.send(`NAME:${file.name}`);
         channel.send(`SIZE:${fileBuffer.byteLength}`);
+        channel.send(`COMPRESSION:${compressionNeeded}`)
         console.log(`Sent metadata for ${file.name}`);
 
-        const chunkSize = 90000;
+
+        const chunkSize = 50000;
         let offset = 0;
 
         const sendChunk = () =>
@@ -143,20 +207,43 @@ export function FileSender() {
             const sendNextChunk = async () => {
               if (offset < fileBuffer.byteLength) {
                 if (channel.readyState === "open") {
+                  let dynamicChunkSize = getDynamicChunkSize(
+                    channel,
+                    fileBuffer,
+                    offset
+                  );
+                  if (dynamicChunkSize === 0) {
+                    console.log("BufferedAmount is high. Waiting...");
+                    return setTimeout(sendNextChunk, 50);
+                  }
+
                   if (channel.bufferedAmount < chunkSize) {
-                    const chunk = fileBuffer.slice(offset, offset + chunkSize);
+                    const chunk = fileBuffer.slice(
+                      offset,
+                      offset + dynamicChunkSize
+                    );
+                    console.log(
+                      "chunk size before compressing",
+                      chunk.byteLength
+                    );
+
+                    const dataToSendOnChannel = compressionNeeded
+                      ? compressionChunk()
+                      : chunk;
 
                     const encryptedChunk = await encryptChunk(
                       sharedSecret,
-                      chunk
+                      dataToSendOnChannel
                     );
+
+                    // console.log("Encrypted Chunk size", encryptedChunk.length);
 
                     if (!encryptedChunk) {
                       console.error("Encrypted Chunk is Null");
                     }
 
                     channel.send(encryptedChunk);
-                    offset += chunkSize;
+                    offset += dynamicChunkSize;
 
                     const progress = Math.floor(
                       (offset / fileBuffer.byteLength) * 100

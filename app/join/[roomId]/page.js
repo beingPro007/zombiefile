@@ -6,6 +6,7 @@ import { io } from "socket.io-client";
 import styles from "./FileReceiver.module.css";
 import { convertToCryptoKeyFromBase64ForPrivateKey, convertToCryptoKeyFromBase64ForPublicKey, importKeyGeneration, publicKeyGenerator, sharedSecretGeneration } from "@/app/lib/keyGenerators";
 import { decryptChunk } from "@/app/lib/chunksEncyptionAndDecryption";
+import { inflateSync } from 'fflate';
 
 export default function FileReceiver() {
     const params = useParams();
@@ -19,6 +20,7 @@ export default function FileReceiver() {
     const [expectedFileSize, setExpectedFileSize] = useState(null);
     const [sharedSecret, setSharedSecret] = useState(null);
     const sharedSecretRef = useRef(null);
+    const [compressionNeeded, setCompressionNeeded] = useState(false)
 
     const signalingServer =
         process.env.NODE_ENV !== "development"
@@ -32,12 +34,18 @@ export default function FileReceiver() {
     );
 
     useEffect(() => {
-        if(sharedSecret !== null){
+        if (sharedSecret !== null) {
             console.info("Shared Secret set on the receiver side successfully");
             sharedSecretRef.current = sharedSecret;
         }
     }, [sharedSecret])
-    
+
+
+    function decompression(decryptedChunk) {
+        const decompressedData = inflateSync(decryptedChunk);
+        return decompressedData
+    }
+
     useEffect(() => {
         const queryRoomId = params?.roomId;
 
@@ -90,19 +98,21 @@ export default function FileReceiver() {
             dataChannel.onmessage = async (event) => {
 
                 if (typeof event.data === "string") {
-                    
+
                     if (event.data.startsWith("{") && event.data.endsWith("}")) {
                         try {
-                            
+
                             const parsedData = JSON.parse(event.data);
+
                             const encryptedChunk = new Uint8Array(parsedData.encryptedChunk).buffer;
                             const iv = new Uint8Array(parsedData.iv);
 
                             const decryptedChunk = await decryptChunk(sharedSecretRef.current, encryptedChunk, iv);
 
-                            chunks.push(decryptedChunk);
+                            const dataToUse = compressionNeeded ? decompression(decryptedChunk) : decryptedChunk
+                            chunks.push(dataToUse);
                             receivedSize += encryptedChunk.byteLength;
-                            
+
                             if (expectedFileSize) {
                                 const percentage = Math.min((receivedSize / expectedFileSize) * 100, 100);
                                 setProgress(Math.floor(percentage));
@@ -115,8 +125,11 @@ export default function FileReceiver() {
                         currentFileMimeType = event.data.replace("MIME:", "");
                         setFileMimeType(currentFileMimeType);
                         console.log("MIME type set to:", currentFileMimeType);
+                    } if (event.data.startsWith("COMPRESSION")) {
+                        const compression = event.data.replace("COMPRESSION:", "");
+                        setCompressionNeeded(compression);
                     } else if (event.data.startsWith("SENDERPUBLICKEY:")) {
-                        
+
                         try {
                             //Step - 1 :- Base64 -> uint8array conversion
                             const base64SenderPublicKey = event.data.split(":")[1];
@@ -125,34 +138,34 @@ export default function FileReceiver() {
                             for (let i = 0; i < binarySenderPublicKey.length; i++) {
                                 uint8ArraySenderPublicKey[i] = binarySenderPublicKey.charCodeAt(i);
                             }
-                            
+
                             //Step - 3 :- importKey creation --> This is created to ECDH public key object, which the Web Crypto API can now use to derive the shared secret with the receiver’s private key
                             const importKeyGenerationForSharedSecretFromUint8ArrayOfSenderPublicKey = await importKeyGeneration(uint8ArraySenderPublicKey);
-    
+
                             //Step - 4 :- Generate receiver's key pair
                             const keyPair = await publicKeyGenerator();
-                            
+
                             const privateCryptoKey = await convertToCryptoKeyFromBase64ForPrivateKey(keyPair.generatedPrivateKey)
                             //Step - 5 :- Generate the sharedSecret.
-                            async function settingSharedSecretState() {  
+                            async function settingSharedSecretState() {
                                 const generatedSharedSecret = await sharedSecretGeneration(privateCryptoKey, importKeyGenerationForSharedSecretFromUint8ArrayOfSenderPublicKey);
-                                setSharedSecret(generatedSharedSecret);                             
+                                setSharedSecret(generatedSharedSecret);
                             }
                             settingSharedSecretState();
 
                             //Step - 6 :- Send the receiver public key so that sender generates its own sharedSecret.
                             const publicCryptoKey = await convertToCryptoKeyFromBase64ForPublicKey(keyPair.generatedPublicKey)
-                            
+
                             const receiverPublicKey = await crypto.subtle.exportKey("raw", publicCryptoKey);
-                            
+
                             const receiverPublicKeyBase64 = btoa(
                                 String.fromCharCode(...new Uint8Array(receiverPublicKey))
                             );
-                            
+
                             dataChannel.send(`RECEIVERPUBLICKEY:${receiverPublicKeyBase64}`);
                         } catch (error) {
                             console.log("Error in generating the shared secret: ", error);
-                            
+
                         }
 
                     } else if (event.data.startsWith("NAME:")) {
