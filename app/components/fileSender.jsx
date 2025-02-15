@@ -41,7 +41,14 @@ export function FileSender() {
   const socket = useMemo(() => io(signalingServer), [signalingServer]);
 
   const configuration = {
-    iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      {
+        urls: process.env.TURN_SERVER_IP,
+        username: "webrtc",
+        credential: process.env.TURN_SERVER_PASS,
+      },
+    ],
   };
 
   const onDrop = useCallback((acceptedFiles) => {
