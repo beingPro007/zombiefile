@@ -32,24 +32,33 @@ export function FileSender() {
   const [privateKey, setPrivateKey] = useState(null);
   const [sharedSecret, setSharedSecret] = useState(null);
   const [channel, setChannel] = useState(null);
-
+  const [TURN_SERVER_IP, setTURN_SERVER_IP] = useState(null);
+  const [TURN_SERVER_PASS, setTURN_SERVER_PASS] = useState(null);
+  
   const signalingServer =
     process.env.NODE_ENV !== "development"
       ? "https://zombie-file-p2p-server-1060514353958.us-central1.run.app/"
       : "http://localhost:3000";
 
   const socket = useMemo(() => io(signalingServer), [signalingServer]);
+  
+  console.log("TURN Server IP:", process.env.NEXT_PUBLIC_TURN_SERVER_IP);
+  console.log(
+    "TURN Password:",
+    process.env.NEXT_PUBLIC_TURN_SERVER_PASS ? "Set ✅" : "Not Set ❌"
+  );
 
   const configuration = {
     iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun.l.google.com:19302" }, // Public STUN Server
       {
-        urls: process.env.TURN_SERVER_IP,
+        urls: `turn:${process.env.TURN_SERVER_IP}:3478`, // Ensure "turn:" prefix and port
         username: "webrtc",
         credential: process.env.TURN_SERVER_PASS,
       },
     ],
   };
+
 
   const onDrop = useCallback((acceptedFiles) => {
     setFiles((prevFiles) => [...prevFiles, ...acceptedFiles]);
@@ -376,6 +385,13 @@ export function FileSender() {
     conn.onicecandidate = (event) => {
       if (event.candidate) {
         socket.emit("ice-candidate", { roomId, candidate: event.candidate });
+      }
+
+      if (event.candidate.candidate.includes("relay")) {
+        console.log(
+          "%cNAT Traversal Successful! TURN is being used.",
+          "color: green; font-weight: bold;"
+        );
       }
     };
 
