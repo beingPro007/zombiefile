@@ -51,11 +51,6 @@ export function FileSender() {
   const configuration = {
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" }, // Public STUN Server
-      {
-        urls: `turn:${process.env.TURN_SERVER_IP}:3478`, // Ensure "turn:" prefix and port
-        username: "webrtc",
-        credential: process.env.TURN_SERVER_PASS,
-      },
     ],
   };
 
@@ -89,9 +84,9 @@ export function FileSender() {
 
   // This helper returns a dynamic (random) chunk size based on available buffer space.
   function getDynamicChunkSize(channel, fileBuffer, offset) {
-    const TARGET_BUFFER = 75000;
+    const TARGET_BUFFER = 60000;
     const MIN_CHUNK_SIZE = 10000;
-    const MAX_CHUNK_SIZE = 100000;
+    const MAX_CHUNK_SIZE = 80000;
 
     const availableBuffer = TARGET_BUFFER - channel.bufferedAmount;
 
