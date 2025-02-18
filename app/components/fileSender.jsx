@@ -41,12 +41,6 @@ export function FileSender() {
       : "http://localhost:3000";
 
   const socket = useMemo(() => io(signalingServer), [signalingServer]);
-  
-  console.log("TURN Server IP:", process.env.NEXT_PUBLIC_TURN_SERVER_IP);
-  console.log(
-    "TURN Password:",
-    process.env.NEXT_PUBLIC_TURN_SERVER_PASS ? "Set ✅" : "Not Set ❌"
-  );
 
   const configuration = {
     iceServers: [
@@ -232,10 +226,6 @@ export function FileSender() {
                     const chunk = fileBuffer.slice(
                       offset,
                       offset + dynamicChunkSize
-                    );
-                    console.log(
-                      "chunk size before compressing",
-                      chunk.byteLength
                     );
 
                     const dataToSendOnChannel = compressionNeeded
