@@ -32,7 +32,9 @@ export function FileSender() {
   const [privateKey, setPrivateKey] = useState(null);
   const [sharedSecret, setSharedSecret] = useState(null);
   const [channel, setChannel] = useState(null);
-
+  const [TURN_SERVER_IP, setTURN_SERVER_IP] = useState(null);
+  const [TURN_SERVER_PASS, setTURN_SERVER_PASS] = useState(null);
+  
   const signalingServer =
     process.env.NODE_ENV !== "development"
       ? "https://zombie-file-p2p-server-1060514353958.us-central1.run.app/"
@@ -41,8 +43,11 @@ export function FileSender() {
   const socket = useMemo(() => io(signalingServer), [signalingServer]);
 
   const configuration = {
-    iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" }, // Public STUN Server
+    ],
   };
+
 
   const onDrop = useCallback((acceptedFiles) => {
     setFiles((prevFiles) => [...prevFiles, ...acceptedFiles]);
@@ -73,9 +78,9 @@ export function FileSender() {
 
   // This helper returns a dynamic (random) chunk size based on available buffer space.
   function getDynamicChunkSize(channel, fileBuffer, offset) {
-    const TARGET_BUFFER = 75000;
+    const TARGET_BUFFER = 60000;
     const MIN_CHUNK_SIZE = 10000;
-    const MAX_CHUNK_SIZE = 100000;
+    const MAX_CHUNK_SIZE = 80000;
 
     const availableBuffer = TARGET_BUFFER - channel.bufferedAmount;
 
@@ -222,10 +227,6 @@ export function FileSender() {
                       offset,
                       offset + dynamicChunkSize
                     );
-                    console.log(
-                      "chunk size before compressing",
-                      chunk.byteLength
-                    );
 
                     const dataToSendOnChannel = compressionNeeded
                       ? compressionChunk()
@@ -369,6 +370,13 @@ export function FileSender() {
     conn.onicecandidate = (event) => {
       if (event.candidate) {
         socket.emit("ice-candidate", { roomId, candidate: event.candidate });
+      }
+
+      if (event.candidate.candidate.includes("relay")) {
+        console.log(
+          "%cNAT Traversal Successful! TURN is being used.",
+          "color: green; font-weight: bold;"
+        );
       }
     };
 
