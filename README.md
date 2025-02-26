@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Zombie File 🧟🧟🧟
 
-## Getting Started
+A ***P2P file-sharing*** web application that lets you send files from one device to another without relying on an external source—except for the signaling server, which is only used at the start.
 
-First, run the development server:
+## Key Features 
+- **P2P File Sending Architecture**
+- **File Chunking** to reduce buffer load on the data channel
+- **Encrypted Transfers** using public-key cryptography
 
+## Future Goals
+- **Faster Transfers** with Parallel Processing
+- **TypeScript Support**
+- **Messaging Feature**
+- **Pause / Resume Functionality**
+- **Retry Mechanism**
+- **Modular File Structure**
+- **Custom Domain (zombiefile)** independent of Vercel deployments
+
+## Contribution
+Contributions are welcome! Feel free to **fork the repo** and submit a pull request.  
+
+## Build
+### **1. Clone this repository**
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/beingPro007/zombiefile.git
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### **2. Run the Signaling Server**
+#### **Using Docker (Recommended)**
+Ensure you're in the correct directory:
+```bash
+cd zombiefile
+docker build -t zombiefile/p2p-core-signaling:latest .
+```
+Then, run the container:
+```bash
+docker run -d --name p2p-signaling -p 3000:3000 zombiefile/p2p-core-signaling:latest
+```
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+#### **Without Docker (Directly Using Node.js)**
+Alternatively, you can start the server using:
+```bash
+npm run server
