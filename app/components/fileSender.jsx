@@ -237,8 +237,6 @@ export function FileSender() {
                       dataToSendOnChannel
                     );
 
-                    // console.log("Encrypted Chunk size", encryptedChunk.length);
-
                     if (!encryptedChunk) {
                       console.error("Encrypted Chunk is Null");
                     }
@@ -370,13 +368,6 @@ export function FileSender() {
     conn.onicecandidate = (event) => {
       if (event.candidate) {
         socket.emit("ice-candidate", { roomId, candidate: event.candidate });
-      }
-
-      if (event.candidate.candidate.includes("relay")) {
-        console.log(
-          "%cNAT Traversal Successful! TURN is being used.",
-          "color: green; font-weight: bold;"
-        );
       }
     };
 
