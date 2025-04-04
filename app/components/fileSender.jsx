@@ -17,6 +17,12 @@ import {
   convertToCryptoKeyFromBase64ForPrivateKey,
 } from "../lib/keyGenerators";
 import { deflateSync } from "fflate";
+import {
+  getDynamicChunkSize,
+  shouldCompress,
+  compressionChunk,
+  isItWorthCompressing,
+} from "../utils/fileUtils";
 import { encryptChunk } from "../lib/chunksEncyptionAndDecryption";
 export function FileSender() {
   const [files, setFiles] = useState([]);
@@ -34,6 +40,7 @@ export function FileSender() {
   const [channel, setChannel] = useState(null);
   const [TURN_SERVER_IP, setTURN_SERVER_IP] = useState(null);
   const [TURN_SERVER_PASS, setTURN_SERVER_PASS] = useState(null);
+  const [peerConnection, setPeerConnection] = useState(null);
   
   const signalingServer =
     process.env.NODE_ENV !== "development"
@@ -72,43 +79,11 @@ export function FileSender() {
       console.info(
         "Shared Secret set successfully...File sharing will start in moments"
       );
-      sendFiles(channel);
+      sendFiles(channel, connection);
     }
   }, [sharedSecret]);
 
   // This helper returns a dynamic (random) chunk size based on available buffer space.
-  function getDynamicChunkSize(channel, fileBuffer, offset) {
-    const TARGET_BUFFER = 60000;
-    const MIN_CHUNK_SIZE = 10000;
-    const MAX_CHUNK_SIZE = 80000;
-
-    const availableBuffer = TARGET_BUFFER - channel.bufferedAmount;
-
-    if (availableBuffer < MIN_CHUNK_SIZE) return 0;
-
-    const remainingBytes = fileBuffer.byteLength - offset;
-    const maxPossible = Math.min(
-      availableBuffer,
-      MAX_CHUNK_SIZE,
-      remainingBytes
-    );
-
-    const dynamicChunkSize =
-      Math.floor(Math.random() * (maxPossible - MIN_CHUNK_SIZE + 1)) +
-      MIN_CHUNK_SIZE;
-
-    return dynamicChunkSize;
-  }
-
-  function compressionChunk() {
-    const chunkInUInt8Buffer = new Uint8Array(chunk);
-    const compressedData = deflateSync(chunkInUInt8Buffer);
-    console.log(
-      "Data is compressing... And the data length after compression is...",
-      compressedData.length
-    );
-    return compressedData;
-  }
 
   const generateLink = async () => {
     try {
@@ -141,31 +116,7 @@ export function FileSender() {
     }
   };
 
-  const shouldCompress = (fileMimeType) => {
-    if (!fileMimeType) return true;
-
-    const nonCompressibleTypes = [
-      "video/",
-      "audio/",
-      "image/",
-      "application/zip",
-      "application/x-rar",
-      "application/pdf",
-      "application/x-7z-compressed",
-    ];
-
-    return !nonCompressibleTypes.some((prefix) =>
-      fileMimeType.startsWith(prefix)
-    );
-  };
-
-  const isItWorthCompressing = (fileBuffer) => {
-    const compressed = deflateSync(fileBuffer);
-    const compressionRatio = compressed.length / fileBuffer.length;
-    return compressionRatio < 0.9;
-  };
-
-  const sendFiles = async (channel) => {
+  const sendFiles = async (channel, connection) => {
     setTransferStatus("Sending files...");
     console.log("Starting file transfer...");
 
@@ -193,16 +144,17 @@ export function FileSender() {
 
         let compressionNeeded = false;
         if (shouldCompress(mimeType) && isItWorthCompressing(fileBuffer)) {
-          console.log("Compression of this file will benficial, Compressing Every Chunk....")
+          console.log(
+            "Compression of this file will benficial, Compressing Every Chunk...."
+          );
           compressionNeeded = true;
         }
         // Send metadata
         channel.send(`MIME:${mimeType}`);
         channel.send(`NAME:${file.name}`);
         channel.send(`SIZE:${fileBuffer.byteLength}`);
-        channel.send(`COMPRESSION:${compressionNeeded}`)
+        channel.send(`COMPRESSION:${compressionNeeded}`);
         console.log(`Sent metadata for ${file.name}`);
-
 
         const chunkSize = 50000;
         let offset = 0;
@@ -212,11 +164,15 @@ export function FileSender() {
             const sendNextChunk = async () => {
               if (offset < fileBuffer.byteLength) {
                 if (channel.readyState === "open") {
-                  let dynamicChunkSize = getDynamicChunkSize(
+                  let dynamicChunkSize = await getDynamicChunkSize(
+                    connection,
                     channel,
                     fileBuffer,
                     offset
                   );
+
+                  console.log("The dynamic chunk we got", dynamicChunkSize);
+                  
                   if (dynamicChunkSize === 0) {
                     console.log("BufferedAmount is high. Waiting...");
                     return setTimeout(sendNextChunk, 50);
@@ -225,7 +181,7 @@ export function FileSender() {
                   if (channel.bufferedAmount < chunkSize) {
                     const chunk = fileBuffer.slice(
                       offset,
-                      offset + dynamicChunkSize
+                      offset + chunkSize
                     );
 
                     const dataToSendOnChannel = compressionNeeded
@@ -370,13 +326,6 @@ export function FileSender() {
     conn.onicecandidate = (event) => {
       if (event.candidate) {
         socket.emit("ice-candidate", { roomId, candidate: event.candidate });
-      }
-
-      if (event.candidate.candidate.includes("relay")) {
-        console.log(
-          "%cNAT Traversal Successful! TURN is being used.",
-          "color: green; font-weight: bold;"
-        );
       }
     };
 
