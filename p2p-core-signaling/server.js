@@ -29,7 +29,7 @@ const io = new Server(server, {
 });
 
 process.on("SIGINT", () => {
-    console.log("[INFO] Shutting down server...");
+    console.log("[INFO] Shutting down server......");
     io.close(() => {
         console.log("[INFO] WebSocket server closed.");
         server.close(() => {
