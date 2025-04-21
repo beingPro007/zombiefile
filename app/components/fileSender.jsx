@@ -181,7 +181,7 @@ export function FileSender() {
                   if (channel.bufferedAmount < chunkSize) {
                     const chunk = fileBuffer.slice(
                       offset,
-                      offset + chunkSize
+                      offset + dynamicChunkSize
                     );
 
                     const dataToSendOnChannel = compressionNeeded

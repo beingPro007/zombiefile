@@ -14,7 +14,7 @@ async function getBandwidthStats(peerConnection) {
 }
 
 export const getDynamicChunkSize = async (peerConnection, channel, fileBuffer, offset) => {
-    const TARGET_BUFFER = 60000;  // Prevents WebRTC congestion
+    const TARGET_BUFFER = 60000;
     const MIN_CHUNK_SIZE = 10000;
     const MAX_CHUNK_SIZE = 160000;
 
@@ -23,7 +23,7 @@ export const getDynamicChunkSize = async (peerConnection, channel, fileBuffer, o
     if (availableBuffer < MIN_CHUNK_SIZE) return 0;
 
     // 🟢 Fetch real-time network stats
-    let bandwidth = 1000000; // Default to 1Mbps if unavailable
+    let bandwidth = 1000000;
     const stats = await peerConnection.getStats();
 
     stats.forEach(report => {
